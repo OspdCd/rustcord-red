@@ -517,6 +517,7 @@ async fn search_youtube_videos(
         .query(&[
             ("part", "snippet"),
             ("type", "video"),
+            ("videoDuration", "short"),
             ("maxResults", "12"),
             ("q", search_term),
             ("key", api_key.as_str()),
@@ -535,11 +536,36 @@ async fn search_youtube_videos(
             )
         })?;
     if !response.status().is_success() {
-        eprintln!("YouTube araması HTTP {} yanıtı verdi.", response.status());
-        return Err((
-            StatusCode::BAD_GATEWAY,
-            "YouTube araması başarısız oldu. API anahtarını ve kotanı kontrol et.".into(),
-        ));
+        let status = response.status();
+        let error_body = response
+            .json::<serde_json::Value>()
+            .await
+            .unwrap_or(serde_json::Value::Null);
+        let reason = error_body
+            .pointer("/error/errors/0/reason")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("unknown");
+        eprintln!(
+            "YouTube araması HTTP {} yanıtı verdi (reason={reason}).",
+            status
+        );
+        let message = match (status.as_u16(), reason) {
+            (_, "quotaExceeded" | "dailyLimitExceeded") => {
+                "YouTube API günlük kotası dolmuş. Google Cloud Console'da kotanı kontrol et."
+            }
+            (400, _) => {
+                "YouTube API anahtarı geçersiz veya YouTube Data API v3 bu projede etkin değil."
+            }
+            (403, "keyInvalid" | "accessNotConfigured") => {
+                "YouTube API anahtarını ve YouTube Data API v3 etkinleştirmesini kontrol et."
+            }
+            (403, _) => {
+                "YouTube API isteği reddedildi. Anahtar kısıtlamalarını ve API izinlerini kontrol et."
+            }
+            (429, _) => "YouTube API istek sınırına ulaşıldı. Biraz sonra tekrar dene.",
+            _ => "YouTube araması başarısız oldu. API anahtarını ve kota durumunu kontrol et.",
+        };
+        return Err((StatusCode::BAD_GATEWAY, message.into()));
     }
     let response = response
         .json::<YouTubeSearchResponse>()

@@ -137,6 +137,7 @@
         .group-categories-list { display: grid; gap: 11px; padding: 12px 0; }
         .group-category { margin: 0; padding: 0; background: transparent; }
         .group-category-heading { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 3px 4px 5px; color: #8d8d99; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+        .group-category-heading-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 2px; }
         .group-category-add { display: grid; width: 22px; height: 22px; place-items: center; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #9595a0; font-size: 16px; cursor: pointer; }
         .group-category-add:hover { border-color: #35353e; background: #1b1b22; color: #fff; }
         .group-channel-list { display: grid; gap: 2px; }
@@ -206,7 +207,7 @@
         .post-time { font-size: 10px; color: #71717a; }
         .post-content { font-size: 13px; color: #d4d4d8; }
 
-        .reels-container { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 20px; overflow-y: auto; height: 100%; scroll-snap-type: y mandatory; }
+        .reels-container { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 20px; overflow-y: auto; height: 100%; }
         .reel-search { width: min(100%, 620px); display: flex; gap: 8px; }
         .reel-search input { flex: 1; min-width: 0; background: #16161c; border: 1px solid #26262e; padding: 10px 12px; border-radius: 10px; color: #fff; }
         .youtube-search-results { display: grid; width: min(100%, 820px); grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
@@ -215,18 +216,22 @@
         .youtube-result-card[aria-pressed="true"] { border-color: #f0525b; background: #1b1216; box-shadow: 0 0 0 1px rgba(240,82,91,.24); }
         .youtube-result-card img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #09090c; }
         .youtube-result-copy { display: grid; gap: 5px; padding: 10px 12px 12px; }
-        .youtube-result-copy strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 13px; line-height: 1.4; }
+        .youtube-result-copy strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; font-size: 13px; line-height: 1.4; }
         .youtube-result-copy span { color: #a1a1aa; font-size: 11px; }
         .youtube-result-choice { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #aaaab5; font-size: 11px; }
         .youtube-result-card[aria-pressed="true"] .youtube-result-choice { color: #ffb2b7; }
         .youtube-search-toolbar { display: flex; width: min(100%, 820px); align-items: center; justify-content: space-between; gap: 12px; color: #a1a1aa; font-size: 12px; }
         .youtube-play-selected { min-height: 38px; padding: 9px 13px; border: 1px solid rgba(239,68,68,.28); border-radius: 10px; background: linear-gradient(135deg, #dc2626, #991b1b); color: white; font-size: 12px; font-weight: 700; cursor: pointer; }
         .youtube-play-selected:disabled { border-color: #2b2b33; background: #1a1a20; color: #777783; cursor: not-allowed; }
-        .reel-add-link { width: min(100%, 620px); padding-top: 12px; border-top: 1px solid #22222a; }
-        .reel-add-link summary { margin-bottom: 10px; color: #b7b7c2; font-size: 12px; font-weight: 650; cursor: pointer; }
-        .reel-add-link .reel-search { width: 100%; }
         .reel-card { width: min(320px, 100%); height: min(480px, 70vh); min-height: 300px; background: #121216; border: 1px solid #26262e; border-radius: 16px; overflow: hidden; scroll-snap-align: start; flex-shrink: 0; }
         .reel-card iframe { width: 100%; height: 100%; border: none; }
+        .shorts-feed { display: flex; width: 100%; max-height: min(78vh, 820px); min-height: 320px; flex-direction: column; align-items: center; gap: 14px; overflow-y: auto; overscroll-behavior: contain; scroll-snap-type: y mandatory; scrollbar-width: thin; }
+        .shorts-feed[hidden] { display: none; }
+        .shorts-feed-card { position: relative; display: flex; width: min(100%, 430px); height: min(78vh, 760px); min-height: 320px; flex: 0 0 auto; flex-direction: column; overflow: hidden; scroll-snap-align: start; border: 1px solid #292933; border-radius: 16px; background: #09090c; }
+        .shorts-feed-card iframe { width: 100%; min-height: 0; flex: 1; border: 0; background: #09090c; }
+        .shorts-feed-caption { display: grid; gap: 4px; padding: 10px 12px; background: #111115; }
+        .shorts-feed-caption strong { overflow: hidden; color: #f4f4f5; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+        .shorts-feed-caption span { overflow: hidden; color: #a1a1aa; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
         .community-messages { flex: 1; min-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
         .community-message { padding: 8px 10px; border-radius: 8px; background: #121216; overflow-wrap: anywhere; }
         .community-form { display: flex; gap: 8px; }
@@ -330,6 +335,7 @@
         .group-workspace { min-width: 0; min-height: 0; flex: 1; flex-direction: column; overflow: hidden; padding: 0 !important; }
         .mobile-group-channels { display: none; }
         .group-workspace-header { display: flex; min-height: 62px; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 20px; border-bottom: 1px solid #22222a; background: #0d0d11; }
+        .group-workspace-header-actions { display: flex; flex: 0 0 auto; gap: 6px; }
         .group-workspace-channel { display: flex; min-width: 0; align-items: center; gap: 11px; }
         .group-workspace-channel > span { color: #9696a2; font-size: 22px; font-weight: 700; }
         .group-workspace-channel h3 { overflow: hidden; color: #f4f4f5; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
@@ -647,8 +653,10 @@
         }
         @media (max-width: 720px) {
             .far-left-bar, .left-sidebar { display: none; }
+            #app-screen.mobile-channel-admin-open .left-sidebar { position: fixed; z-index: 110; top: 0; bottom: calc(68px + env(safe-area-inset-bottom)); left: 0; display: flex; width: min(290px, 88vw); box-shadow: 18px 0 48px rgba(0,0,0,.55); }
             #tab-Gruplar.group-open { padding: 0 !important; }
             .group-workspace-header { min-height: 54px; padding: 8px 12px; }
+            .group-workspace-header-actions { gap: 5px; }
             .group-workspace-back { padding: 7px 8px; }
             .group-text-view, .group-voice-view { padding: 10px; }
             .mobile-group-channels { display: flex; gap: 6px; overflow-x: auto; padding: 8px 10px; border-bottom: 1px solid #25252d; background: #101014; scrollbar-width: thin; }
@@ -701,7 +709,9 @@
             .youtube-result-copy span { font-size: 10px; }
             .youtube-search-toolbar { align-items: flex-start; font-size: 11px; }
             .youtube-play-selected { flex: 0 0 auto; padding: 8px 10px; font-size: 10px; }
-            .reel-add-link { padding-top: 9px; }
+            .shorts-feed { width: 100%; max-height: 72vh; min-height: 300px; gap: 10px; }
+            .shorts-feed-card { width: min(100%, 430px); height: min(72vh, 700px); min-height: 300px; border-radius: 13px; }
+            .shorts-feed-caption { padding: 8px 10px; }
             .messages-list { margin: 10px 0; padding: 9px; }
             .message-composer { padding-top: 8px; }
             .mobile-bottom-nav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
@@ -911,7 +921,7 @@
                         <strong id="groupSidebarName">Grup kanalları</strong>
                         <span id="groupSidebarMeta"></span>
                     </div>
-                    <button class="group-sidebar-close" type="button" title="Grup listesini göster" aria-label="Grup listesini göster" onclick="returnToGroups()">×</button>
+                    <button class="group-sidebar-close" type="button" title="Kapat" aria-label="Kapat" onclick="closeGroupChannelSidebar()">×</button>
                 </div>
                 <div id="groupCategories" class="group-categories-list"></div>
                 <div id="group-settings-status" class="status-message" role="status"></div>
@@ -1037,7 +1047,10 @@
                                 <p id="groupChannelHeaderMeta"></p>
                             </div>
                         </div>
-                        <button class="group-workspace-back" type="button" onclick="returnToGroups()">Grup listesi</button>
+                        <div class="group-workspace-header-actions">
+                            <button id="mobileAddGroupChannel" class="group-workspace-back" type="button" style="display:none;" onclick="openMobileGroupChannelCreator()">＋ Kanal</button>
+                            <button class="group-workspace-back" type="button" onclick="returnToGroups()">Grup listesi</button>
+                        </div>
                     </header>
                     <section id="groupTextChannelView" class="group-text-view">
                         <div id="group-chat-messages" class="group-message-list" aria-live="polite"></div>
@@ -1093,7 +1106,7 @@
             <div id="tab-Reels" class="tab-content">
                 <div class="reels-container">
                     <h2 style="color: #ef4444; font-size: 18px; margin-top: 4px;">🎬 Video keşfet</h2>
-                    <div style="color:#92929e;font-size:12px;text-align:center;">Ara, izlemek istediğin videoyu seç ve burada oynat.</div>
+                    <div style="color:#92929e;font-size:12px;text-align:center;">Ara, sonuçları dikey Shorts akışında kaydırarak izle. YouTube araması 4 dakikadan kısa videoları bulur; hepsi mutlaka Shorts olmayabilir.</div>
                     <form class="reel-search" onsubmit="searchYouTube(event)">
                         <input id="youtubeSearch" type="search" placeholder="YouTube'da video ara..." aria-label="YouTube'da video ara">
                         <button id="youtubeSearchButton" class="auth-btn" type="submit">Sitede ara</button>
@@ -1103,16 +1116,10 @@
                         <span id="youtubeSelectionLabel">Arama sonuçları burada görünecek.</span>
                         <button id="youtubePlaySelected" class="youtube-play-selected" type="button" onclick="playSelectedYouTubeVideo()" disabled>Seçili videoyu izle</button>
                     </div>
+                    <button id="youtubePlaySearchFeed" class="youtube-play-selected" type="button" onclick="playYouTubeSearchFeed()" disabled>Sonuçları Shorts akışında kaydır</button>
                     <div id="youtubeSearchResults" class="youtube-search-results"></div>
-                    <details class="reel-add-link">
-                        <summary>Bağlantı kullanarak video aç</summary>
-                        <form class="reel-search" onsubmit="addReel(event)">
-                            <input id="youtubeVideoUrl" type="url" placeholder="YouTube video veya Shorts bağlantısı" aria-label="YouTube video bağlantısı">
-                            <button class="auth-btn" type="submit">Bağlantıyı aç</button>
-                        </form>
-                    </details>
+                    <div id="shortsFeed" class="shorts-feed" aria-label="Kaydırmalı kısa video akışı" hidden></div>
                     <div id="reelsList" style="display:contents;"></div>
-                    <div id="reels-status" class="status-message" role="status"></div>
                 </div>
             </div>
 
@@ -1423,6 +1430,8 @@
         let screenTrack = null;
         const groupPeerConnections = new Map();
         let reels = [];
+        let youtubeSearchResults = [];
+        let shortsFeedObserver = null;
         let searchHistory = [];
         let selectedYouTubeVideo = null;
         let emailVisible = true;
@@ -1472,7 +1481,9 @@
             selectedDmNick = '';
             posts = readStoredJson('rustcord_posts', []);
             stories = [];
-            reels = readStoredJson('rustcord_reels', []);
+            reels = readStoredJson('rustcord_reels', [])
+                .map(reel => typeof reel === 'string' ? { id: reel, title: 'YouTube videosu', channelTitle: '' } : reel)
+                .filter(reel => reel && /^[A-Za-z0-9_-]{11}$/.test(reel.id));
             searchHistory = readStoredJson('rustcord_search_history', []);
 
             renderFriends();
@@ -1508,6 +1519,10 @@
 
         async function initializeTurnstile() {
             const status = document.getElementById('auth-status');
+            if (window.location.protocol === 'file:') {
+                status.textContent = 'Uygulamayı dosya olarak açmayın. start-local.ps1 ile sunucuyu başlatıp http://localhost:3000 adresine gidin.';
+                return;
+            }
             try {
                 const response = await fetch(`${API_BASE}/api/config/turnstile`);
                 if (!response.ok) throw new Error(`Turnstile yapılandırması alınamadı (${response.status}).`);
@@ -1862,12 +1877,17 @@
         async function loadFriends() {
             try {
                 const result = await apiRequest('/api/friends');
-                friends = result.friends;
-                friendRequests = result.requests;
+                const friendList = Array.isArray(result) ? result : result?.friends;
+                const requests = Array.isArray(result) ? [] : result?.requests;
+                if (!Array.isArray(friendList) || !Array.isArray(requests)) {
+                    throw new Error('Arkadaş listesi sunucudan beklenmeyen biçimde geldi.');
+                }
+                friends = friendList;
+                friendRequests = requests;
                 renderFriends();
                 renderMobileFriends();
             } catch (error) {
-                document.getElementById('friendsListContainer').textContent = error.message;
+                document.getElementById('friendsListContainer').textContent = `Arkadaş listesi yüklenemedi: ${error.message}`;
             }
         }
 
@@ -2284,6 +2304,7 @@
                 await loadGroups();
                 document.getElementById('addGroupChannelForm').reset();
                 document.getElementById('groupAdminTools').open = false;
+                document.getElementById('app-screen').classList.remove('mobile-channel-admin-open');
                 status.textContent = 'Kanal eklendi.';
             } catch (error) {
                 status.textContent = error.message;
@@ -2306,6 +2327,35 @@
             }
         }
 
+        function openGroupChannelCreator(categoryName, kind) {
+            if (!activeGroup) return;
+            const categoryInput = document.getElementById('groupCategoryName');
+            const channelNameInput = document.getElementById('groupChannelName');
+            categoryInput.value = categoryName;
+            document.getElementById('groupChannelKind').value = kind;
+            document.getElementById('groupAdminTools').open = true;
+            document.getElementById('app-screen').classList.toggle(
+                'mobile-channel-admin-open',
+                window.matchMedia('(max-width: 720px)').matches
+            );
+            window.requestAnimationFrame(() => channelNameInput.focus());
+        }
+
+        function openMobileGroupChannelCreator() {
+            const category = activeGroup?.categories[0];
+            if (category) openGroupChannelCreator(category.name, 'text');
+        }
+
+        function closeGroupChannelSidebar() {
+            const app = document.getElementById('app-screen');
+            if (app.classList.contains('mobile-channel-admin-open')) {
+                app.classList.remove('mobile-channel-admin-open');
+                document.getElementById('groupAdminTools').open = false;
+                return;
+            }
+            returnToGroups();
+        }
+
         function renderGroupCategories(group) {
             const container = document.getElementById('groupCategories');
             const mobileChannels = document.getElementById('mobileGroupChannels');
@@ -2319,19 +2369,25 @@
                 const title = document.createElement('span');
                 title.textContent = category.name.toLocaleUpperCase('tr');
                 heading.appendChild(title);
-                if (group.role === 'founder' || group.role === 'moderator') {
-                    const addButton = document.createElement('button');
-                    addButton.type = 'button';
-                    addButton.className = 'group-category-add';
-                    addButton.textContent = '+';
-                    addButton.title = `${category.name} kategorisine kanal ekle`;
-                    addButton.setAttribute('aria-label', addButton.title);
-                    addButton.addEventListener('click', () => {
-                        document.getElementById('groupCategoryName').value = category.name;
-                        document.getElementById('groupAdminTools').open = true;
-                        document.getElementById('groupChannelName').focus();
+                const canManageChannels = group.role === 'founder' || group.role === 'moderator';
+                if (canManageChannels) {
+                    const actions = document.createElement('div');
+                    actions.className = 'group-category-heading-actions';
+                    [
+                        { kind: 'text', label: `${category.name} metin kanalı oluştur` },
+                        { kind: 'voice', label: `${category.name} ses odası oluştur` }
+                    ].forEach(action => {
+                        const addButton = document.createElement('button');
+                        addButton.type = 'button';
+                        addButton.className = 'group-category-add';
+                        addButton.textContent = '+';
+                        addButton.title = action.label;
+                        addButton.setAttribute('aria-label', action.label);
+                        addButton.dataset.channelKind = action.kind;
+                        addButton.addEventListener('click', () => openGroupChannelCreator(category.name, action.kind));
+                        actions.appendChild(addButton);
                     });
-                    heading.appendChild(addButton);
+                    heading.appendChild(actions);
                 }
                 section.appendChild(heading);
                 const channelList = document.createElement('div');
@@ -2359,6 +2415,8 @@
             });
             const canManageChannels = group.role === 'founder' || group.role === 'moderator';
             document.getElementById('groupAdminTools').style.display = canManageChannels ? 'block' : 'none';
+            const mobileAddChannel = document.getElementById('mobileAddGroupChannel');
+            mobileAddChannel.style.display = canManageChannels ? 'inline-flex' : 'none';
             document.getElementById('groupModeratorTools').style.display = group.role === 'founder' ? 'block' : 'none';
             document.getElementById('groupModeratorForm').style.display = group.role === 'founder' ? 'grid' : 'none';
             document.getElementById('groupSidebarName').textContent = group.name;
@@ -2904,14 +2962,18 @@
             const results = document.getElementById('youtubeSearchResults');
             const selectionLabel = document.getElementById('youtubeSelectionLabel');
             const playButton = document.getElementById('youtubePlaySelected');
+            const feedButton = document.getElementById('youtubePlaySearchFeed');
             selectedYouTubeVideo = null;
+            youtubeSearchResults = [];
             playButton.disabled = true;
+            feedButton.disabled = true;
             selectionLabel.textContent = 'Arama sonuçları yükleniyor...';
             button.disabled = true;
             status.textContent = 'YouTube videoları aranıyor...';
             results.replaceChildren();
             try {
                 const videos = await apiRequest(`/api/youtube/search?q=${encodeURIComponent(query)}`);
+                youtubeSearchResults = videos;
                 videos.forEach(video => {
                     const card = document.createElement('button');
                     card.type = 'button';
@@ -2937,6 +2999,11 @@
                 });
                 status.textContent = videos.length ? `${videos.length} sonuç bulundu. İzlemek istediğin videoyu seç.` : 'Bu aramayla eşleşen video bulunamadı.';
                 selectionLabel.textContent = videos.length ? 'Bir sonuç seçerek oynatıcıda açabilirsin.' : 'Sonuç bulunamadı.';
+                feedButton.disabled = videos.length === 0;
+                if (videos.length) {
+                    document.getElementById('shortsFeed').hidden = true;
+                    document.getElementById('shortsFeed').replaceChildren();
+                }
             } catch (error) {
                 status.textContent = error.message;
                 selectionLabel.textContent = 'Video seçmek için önce arama yap.';
@@ -2959,7 +3026,25 @@
 
         function playSelectedYouTubeVideo() {
             if (!selectedYouTubeVideo) return;
-            playYouTubeVideo(selectedYouTubeVideo.id);
+            playYouTubeVideo(selectedYouTubeVideo);
+        }
+
+        function playYouTubeSearchFeed() {
+            if (!youtubeSearchResults.length) return;
+            const newReels = youtubeSearchResults.map(video => ({
+                id: video.id,
+                title: video.title,
+                channelTitle: video.channel_title
+            }));
+            const uniqueReels = new Map(reels.map(reel => [reel.id, reel]));
+            newReels.forEach(reel => uniqueReels.set(reel.id, reel));
+            reels = Array.from(uniqueReels.values()).slice(-60);
+            localStorage.setItem('rustcord_reels', JSON.stringify(reels));
+            renderReels();
+            const feed = document.getElementById('shortsFeed');
+            feed.hidden = false;
+            feed.scrollTop = 0;
+            feed.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function renderSearchHistory() {
@@ -3026,68 +3111,81 @@
             renderSearchHistory();
         }
 
-        function extractYouTubeId(value) {
-            try {
-                const url = new URL(value);
-                let videoId = '';
-                if (url.hostname === 'youtu.be' || url.hostname === 'www.youtu.be') videoId = url.pathname.slice(1);
-                else if (['youtube.com', 'www.youtube.com', 'm.youtube.com'].includes(url.hostname)) {
-                    if (url.pathname === '/watch') videoId = url.searchParams.get('v') || '';
-                    else if (url.pathname.startsWith('/embed/') || url.pathname.startsWith('/shorts/')) videoId = url.pathname.split('/')[2] || '';
-                }
-                return /^[A-Za-z0-9_-]{11}$/.test(videoId) ? videoId : '';
-            } catch {
-                return '';
-            }
-        }
-
-        function addReel(event) {
-            event.preventDefault();
-            const input = document.getElementById('youtubeVideoUrl');
-            const videoId = extractYouTubeId(input.value.trim());
-            const status = document.getElementById('reels-status');
-            if (!videoId) {
-                status.textContent = 'Geçerli bir YouTube video veya Shorts bağlantısı girin.';
-                return;
-            }
-            if (!reels.includes(videoId)) reels.push(videoId);
-            localStorage.setItem('rustcord_reels', JSON.stringify(reels));
-            input.value = '';
-            status.textContent = '';
-            renderReels();
-            document.getElementById('reelsList').lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-
-        function playYouTubeVideo(videoId) {
-            if (!reels.includes(videoId)) reels.push(videoId);
+        function playYouTubeVideo(video) {
+            const reel = typeof video === 'string'
+                ? { id: video, title: 'YouTube videosu', channelTitle: '' }
+                : { id: video.id, title: video.title, channelTitle: video.channel_title };
+            if (!reels.some(item => item.id === reel.id)) reels.push(reel);
             localStorage.setItem('rustcord_reels', JSON.stringify(reels));
             renderReels();
-            document.getElementById('reelsList').lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            document.getElementById('shortsFeed').hidden = false;
+            document.getElementById('shortsFeed').lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         function renderReels() {
             const list = document.getElementById('reelsList');
             if (!list) return;
             list.replaceChildren();
-            reels.forEach(videoId => {
-                const card = document.createElement('div');
-                card.className = 'reel-card';
+            if (shortsFeedObserver) shortsFeedObserver.disconnect();
+            const feed = document.getElementById('shortsFeed');
+            if (feed) feed.replaceChildren();
+            reels.forEach(reel => {
+                const card = document.createElement('article');
+                card.className = 'shorts-feed-card';
                 const frame = document.createElement('iframe');
-                const embedUrl = new URL(`https://www.youtube.com/embed/${encodeURIComponent(videoId)}`);
-                embedUrl.searchParams.set('playsinline', '1');
-                embedUrl.searchParams.set('rel', '0');
-                if (['http:', 'https:'].includes(window.location.protocol)) {
-                    embedUrl.searchParams.set('origin', window.location.origin);
-                }
-                frame.title = 'YouTube kısa video';
+                frame.dataset.videoId = reel.id;
+                frame.title = reel.title || 'YouTube kısa video';
                 frame.referrerPolicy = 'strict-origin-when-cross-origin';
                 frame.loading = 'lazy';
                 frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
                 frame.allowFullscreen = true;
-                frame.src = embedUrl.toString();
-                card.appendChild(frame);
-                list.appendChild(card);
+                const caption = document.createElement('div');
+                caption.className = 'shorts-feed-caption';
+                const title = document.createElement('strong');
+                title.textContent = reel.title || 'YouTube videosu';
+                const channel = document.createElement('span');
+                channel.textContent = reel.channelTitle || 'Kaydırarak sonraki videoya geç';
+                caption.append(title, channel);
+                card.append(frame, caption);
+                feed.appendChild(card);
             });
+
+            if ('IntersectionObserver' in window && feed) {
+                shortsFeedObserver = new IntersectionObserver(entries => {
+                    entries.forEach(entry => {
+                        const frame = entry.target.querySelector('iframe');
+                        if (!frame) return;
+                        if (entry.isIntersecting) {
+                            if (!frame.src) {
+                                const embedUrl = new URL(`https://www.youtube.com/embed/${encodeURIComponent(frame.dataset.videoId)}`);
+                                embedUrl.searchParams.set('playsinline', '1');
+                                embedUrl.searchParams.set('rel', '0');
+                                embedUrl.searchParams.set('autoplay', '1');
+                                embedUrl.searchParams.set('mute', '1');
+                                embedUrl.searchParams.set('enablejsapi', '1');
+                                if (['http:', 'https:'].includes(window.location.protocol)) {
+                                    embedUrl.searchParams.set('origin', window.location.origin);
+                                }
+                                frame.src = embedUrl.toString();
+                            }
+                        } else if (frame.src) {
+                            frame.contentWindow?.postMessage(JSON.stringify({
+                                event: 'command',
+                                func: 'pauseVideo',
+                                args: []
+                            }), 'https://www.youtube.com');
+                        }
+                    });
+                }, { root: feed, threshold: 0.65 });
+                feed.querySelectorAll('.shorts-feed-card').forEach(card => shortsFeedObserver.observe(card));
+            } else if (feed) {
+                feed.querySelectorAll('iframe').forEach(frame => {
+                    const embedUrl = new URL(`https://www.youtube.com/embed/${encodeURIComponent(frame.dataset.videoId)}`);
+                    embedUrl.searchParams.set('playsinline', '1');
+                    embedUrl.searchParams.set('rel', '0');
+                    frame.src = embedUrl.toString();
+                });
+            }
         }
     </script>
 </body>
