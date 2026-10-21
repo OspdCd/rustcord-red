@@ -1,0 +1,1700 @@
+use argon2::{
+    Argon2,
+    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
+};
+use axum::{
+    Json, Router,
+    extract::{
+        Path, Query, State,
+        ws::{Message, WebSocket, WebSocketUpgrade},
+    },
+    http::{HeaderMap, StatusCode},
+    routing::{delete, get, post},
+};
+use futures_util::{SinkExt, StreamExt};
+use serde::{Deserialize, Serialize};
+use std::{
+    collections::{HashMap, HashSet},
+    env, fs,
+    io::ErrorKind,
+    net::SocketAddr,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
+use tokio::sync::{Mutex, broadcast};
+use tower_http::{cors::CorsLayer, services::ServeDir};
+use uuid::Uuid;
+
+// --- VERİ YAPILARI (DATA STRUCTURES) ---
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct PostModel {
+    id: u64,
+    author: String,
+    content: String,
+    likes: u32,
+    created_at: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct GroupModel {
+    id: u64,
+    name: String,
+    members_count: u32,
+    #[serde(default)]
+    owner_email: Option<String>,
+    #[serde(default)]
+    moderator_emails: Vec<String>,
+    #[serde(default)]
+    categories: Vec<ChannelCategory>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct ChannelCategory {
+    id: String,
+    name: String,
+    channels: Vec<GroupChannel>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct GroupChannel {
+    id: String,
+    name: String,
+    kind: String,
+}
+
+#[derive(Serialize)]
+struct GroupView {
+    id: u64,
+    name: String,
+    members_count: u32,
+    owner: String,
+    role: String,
+    categories: Vec<ChannelCategory>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct NotificationModel {
+    id: u64,
+    title: String,
+    content: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct CreatePostPayload {
+    author: String,
+    content: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct CreateGroupPayload {
+    name: String,
+}
+
+#[derive(Deserialize)]
+struct AddGroupChannelPayload {
+    category: String,
+    name: String,
+    kind: String,
+}
+
+#[derive(Deserialize)]
+struct AssignGroupModeratorPayload {
+    nick: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct DirectMessage {
+    id: String,
+    from_email: String,
+    to_email: String,
+    from_nick: String,
+    text: String,
+    created_at: i64,
+}
+
+#[derive(Serialize)]
+struct DirectMessageResponse {
+    id: String,
+    from_nick: String,
+    text: String,
+    created_at: i64,
+}
+
+#[derive(Deserialize)]
+struct SendDirectMessagePayload {
+    to_nick: String,
+    text: String,
+}
+
+#[derive(Deserialize)]
+struct DirectMessageQuery {
+    nick: String,
+}
+
+#[derive(Serialize)]
+struct TurnstileConfig {
+    site_key: Option<String>,
+    enabled: bool,
+}
+
+#[derive(Deserialize)]
+struct TurnstilePayload {
+    token: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct User {
+    email: String,
+    nick: String,
+    password_hash: String,
+    #[serde(default)]
+    disabled: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct FriendRequest {
+    id: String,
+    from_email: String,
+    to_email: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct Friendship {
+    user_a: String,
+    user_b: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct StoryModel {
+    id: String,
+    author_email: String,
+    author: String,
+    text: String,
+    #[serde(default)]
+    image: Option<String>,
+    created_at: i64,
+    expires_at: i64,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+struct Database {
+    #[serde(default)]
+    users: Vec<User>,
+    #[serde(default)]
+    friend_requests: Vec<FriendRequest>,
+    #[serde(default)]
+    friendships: Vec<Friendship>,
+    #[serde(default)]
+    stories: Vec<StoryModel>,
+    #[serde(default)]
+    messages: Vec<serde_json::Value>,
+    #[serde(default)]
+    direct_messages: Vec<DirectMessage>,
+    #[serde(default)]
+    groups: Vec<GroupModel>,
+    #[serde(default)]
+    sessions: HashMap<String, Session>,
+}
+
+#[derive(Deserialize)]
+struct AuthPayload {
+    nick: String,
+    email: String,
+    password: String,
+    turnstile_token: String,
+}
+
+#[derive(Serialize)]
+struct AuthResponse {
+    session: String,
+    nick: String,
+    email: String,
+}
+
+#[derive(Deserialize)]
+struct ChangePasswordPayload {
+    current_password: String,
+    new_password: String,
+}
+
+#[derive(Deserialize)]
+struct NicknamePayload {
+    nick: String,
+}
+
+#[derive(Serialize)]
+struct FriendListResponse {
+    friends: Vec<String>,
+    requests: Vec<IncomingFriendRequest>,
+}
+
+#[derive(Serialize)]
+struct IncomingFriendRequest {
+    id: String,
+    nick: String,
+}
+
+#[derive(Deserialize)]
+struct CreateFriendRequestPayload {
+    nick: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct CreateStoryPayload {
+    text: String,
+    image: Option<String>,
+}
+
+#[derive(Serialize)]
+struct SessionUser {
+    nick: String,
+    email: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct Session {
+    email: String,
+}
+
+#[derive(Deserialize)]
+struct TurnstileVerification {
+    success: bool,
+}
+
+// --- SUNUCU DURUMU (APP STATE) ---
+
+struct AppState {
+    posts: Mutex<Vec<PostModel>>,
+    notifications: Mutex<Vec<NotificationModel>>,
+    database: Mutex<Database>,
+    group_channels: Mutex<HashMap<u64, broadcast::Sender<String>>>,
+    tx: broadcast::Sender<String>,
+}
+
+#[tokio::main]
+async fn main() {
+    let (tx, _rx) = broadcast::channel(100);
+    let database_path = database_path();
+    let mut database = match fs::read_to_string(&database_path) {
+        Ok(contents) => serde_json::from_str(&contents).expect("data.json geçerli JSON olmalı"),
+        Err(error) if error.kind() == ErrorKind::NotFound => Database::default(),
+        Err(error) => panic!("data.json okunamadı: {error}"),
+    };
+    let user_emails: HashSet<String> = database
+        .users
+        .iter()
+        .filter(|user| !user.disabled)
+        .map(|user| user.email.clone())
+        .collect();
+    database
+        .sessions
+        .retain(|_, session| user_emails.contains(&session.email));
+    let mut groups_migrated = false;
+    if database.groups.is_empty() {
+        database.groups = default_groups();
+        groups_migrated = true;
+    } else {
+        for group in &mut database.groups {
+            if group.categories.is_empty() {
+                group.categories = default_groups()[0].categories.clone();
+                groups_migrated = true;
+            }
+        }
+    }
+    if groups_migrated {
+        persist_database(&database)
+            .await
+            .expect("Topluluklar kalıcı veriye yazılamadı");
+    }
+
+    // Başlangıç Örnek Verileri (Görseldekine Uygun)
+    let initial_posts = vec![
+        PostModel {
+            id: 1,
+            author: "Skylex".into(),
+            content: "Gecenin sessizliği... 🌃👑".into(),
+            likes: 124,
+            created_at: "2 saat önce".into(),
+        },
+        PostModel {
+            id: 2,
+            author: "Zeynep".into(),
+            content: "Yeni bir başlangıç... 🚀".into(),
+            likes: 42,
+            created_at: "4 saat önce".into(),
+        },
+    ];
+
+    let initial_notifications = vec![
+        NotificationModel {
+            id: 1,
+            title: "Yeni İstek".into(),
+            content: "Ali Yılmaz sana arkadaşlık isteği gönderdi.".into(),
+        },
+        NotificationModel {
+            id: 2,
+            title: "Sistem".into(),
+            content: "RustCord Red sürümüne hoş geldin!".into(),
+        },
+    ];
+
+    let state = Arc::new(AppState {
+        posts: Mutex::new(initial_posts),
+        notifications: Mutex::new(initial_notifications),
+        database: Mutex::new(database),
+        group_channels: Mutex::new(HashMap::new()),
+        tx,
+    });
+
+    let cleanup_state = state.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+        loop {
+            interval.tick().await;
+            let mut database = cleanup_state.database.lock().await;
+            let previous_length = database.stories.len();
+            database
+                .stories
+                .retain(|story| !story_expired(story, now_unix()));
+            if database.stories.len() != previous_length {
+                if let Err(error) = persist_database(&database).await {
+                    eprintln!("Süresi dolan hikayeler kaydedilemedi: {error}");
+                }
+            }
+        }
+    });
+
+    // API Rotaları (Sağ Menü Butonlarının Çalışması İçin)
+    let app = Router::new()
+        // 🏠 EV / AKIŞ ROUTELERİ
+        .route("/api/posts", get(get_posts).post(create_post))
+        .route("/api/posts/:id/like", post(like_post))
+        // 👥 GRUPLAR ROUTELERİ
+        .route("/api/groups", get(get_groups).post(create_group))
+        .route("/api/groups/:group_id/channels", post(add_group_channel))
+        .route(
+            "/api/groups/:group_id/moderators",
+            post(assign_group_moderator),
+        )
+        // 🔔 BİLDİRİMLER ROUTELERİ
+        .route("/api/notifications", get(get_notifications))
+        .route("/api/config/turnstile", get(get_turnstile_config))
+        .route("/api/turnstile/verify", post(verify_turnstile))
+        .route("/api/auth", post(authenticate))
+        .route("/api/auth/me", get(get_session_user))
+        .route("/api/auth/logout", post(logout))
+        .route("/api/auth/password", post(change_password))
+        .route("/api/auth/nickname", post(change_nickname))
+        .route("/api/auth/deactivate", post(deactivate_account))
+        .route("/api/auth/account", delete(delete_account))
+        .route("/api/friends", get(get_friends))
+        .route("/api/friends/requests", post(create_friend_request))
+        .route(
+            "/api/dm",
+            get(get_direct_messages).post(send_direct_message),
+        )
+        .route(
+            "/api/friends/requests/:request_id/accept",
+            post(accept_friend_request),
+        )
+        .route("/api/stories", get(get_stories).post(create_story))
+        // 💬 WEBSOCKET (ANLIK CHAT & MESAJLAR)
+        .route("/ws/chat", get(websocket_handler))
+        .route("/ws/groups/:group_id", get(group_websocket_handler))
+        .fallback_service(ServeDir::new("Client").append_index_html_on_directories(true))
+        .layer(CorsLayer::permissive())
+        .with_state(state);
+
+    let port = env::var("PORT")
+        .ok()
+        .and_then(|value| value.parse::<u16>().ok())
+        .unwrap_or(3000);
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    println!("🚀 RustCord Red Backend Aktif: http://{}", addr);
+
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
+
+// --- HANDLER FONKSİYONLARI ---
+
+async fn get_turnstile_config() -> Json<TurnstileConfig> {
+    let site_key = env::var("TURNSTILE_SITE_KEY")
+        .ok()
+        .filter(|value| !value.trim().is_empty());
+    let has_secret = env::var("TURNSTILE_SECRET_KEY")
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false);
+    Json(TurnstileConfig {
+        enabled: site_key.is_some() && has_secret,
+        site_key,
+    })
+}
+
+async fn verify_turnstile(
+    Json(payload): Json<TurnstilePayload>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    verify_turnstile_token(&payload.token).await?;
+    Ok(Json(serde_json::json!({ "success": true })))
+}
+
+async fn verify_turnstile_token(token: &str) -> Result<(), (StatusCode, String)> {
+    if token.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Turnstile doğrulaması gerekli.".into(),
+        ));
+    }
+    let secret = env::var("TURNSTILE_SECRET_KEY")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Turnstile sunucu anahtarı yapılandırılmamış.".into(),
+            )
+        })?;
+
+    let response = reqwest::Client::new()
+        .post("https://challenges.cloudflare.com/turnstile/v0/siteverify")
+        .form(&[("secret", secret.as_str()), ("response", token)])
+        .send()
+        .await
+        .map_err(|_| {
+            (
+                StatusCode::BAD_GATEWAY,
+                "Turnstile doğrulama servisine ulaşılamadı.".into(),
+            )
+        })?
+        .error_for_status()
+        .map_err(|_| {
+            (
+                StatusCode::BAD_GATEWAY,
+                "Turnstile doğrulama servisi hata döndürdü.".into(),
+            )
+        })?
+        .json::<TurnstileVerification>()
+        .await
+        .map_err(|_| {
+            (
+                StatusCode::BAD_GATEWAY,
+                "Turnstile yanıtı okunamadı.".into(),
+            )
+        })?;
+
+    if !response.success {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "Robot doğrulaması başarısız. Lütfen tekrar deneyin.".into(),
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_email(email: &str) -> bool {
+    if email.len() > 254 || email.chars().any(char::is_whitespace) {
+        return false;
+    }
+    let Some((local, domain)) = email.split_once('@') else {
+        return false;
+    };
+    !local.is_empty()
+        && !domain.is_empty()
+        && domain.contains('.')
+        && !domain.starts_with('.')
+        && !domain.ends_with('.')
+        && !email[local.len() + 1..].contains('@')
+}
+
+fn now_unix() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
+
+fn story_expired(story: &StoryModel, now: i64) -> bool {
+    story.expires_at <= now
+}
+
+fn can_view_story(author_email: &str, viewer_email: &str, friends: &HashSet<String>) -> bool {
+    author_email == viewer_email || friends.contains(author_email)
+}
+
+fn are_friends(database: &Database, first_email: &str, second_email: &str) -> bool {
+    database.friendships.iter().any(|friendship| {
+        (friendship.user_a == first_email && friendship.user_b == second_email)
+            || (friendship.user_b == first_email && friendship.user_a == second_email)
+    })
+}
+
+async fn persist_database(database: &Database) -> Result<(), String> {
+    let contents = serde_json::to_vec_pretty(database).map_err(|error| error.to_string())?;
+    tokio::fs::write(database_path(), contents)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+fn database_path() -> String {
+    env::var("APP_DATA_FILE").unwrap_or_else(|_| "app-data.json".into())
+}
+
+fn hash_password(password: &str) -> Result<String, (StatusCode, String)> {
+    let salt = SaltString::generate(&mut OsRng);
+    Argon2::default()
+        .hash_password(password.as_bytes(), &salt)
+        .map(|hash| hash.to_string())
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Şifre güvenli biçimde kaydedilemedi.".into(),
+            )
+        })
+}
+
+fn verify_password(password: &str, password_hash: &str) -> bool {
+    let Ok(parsed_hash) = PasswordHash::new(password_hash) else {
+        return false;
+    };
+    Argon2::default()
+        .verify_password(password.as_bytes(), &parsed_hash)
+        .is_ok()
+}
+
+async fn authenticate(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<AuthPayload>,
+) -> Result<Json<AuthResponse>, (StatusCode, String)> {
+    let nick = payload.nick.trim();
+    let email = payload.email.trim().to_lowercase();
+    if nick.is_empty() || nick.chars().count() > 32 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Kullanıcı adı 1-32 karakter olmalı.".into(),
+        ));
+    }
+    if !validate_email(&email) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Geçerli biçimde bir e-posta adresi girin.".into(),
+        ));
+    }
+    if !(8..=128).contains(&payload.password.chars().count()) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Şifre 8-128 karakter olmalı.".into(),
+        ));
+    }
+    verify_turnstile_token(&payload.turnstile_token).await?;
+
+    let mut database = state.database.lock().await;
+    let user = if let Some(user) = database.users.iter().find(|user| user.email == email) {
+        if user.disabled || !verify_password(&payload.password, &user.password_hash) {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                "E-posta veya şifre hatalı.".into(),
+            ));
+        }
+        user.clone()
+    } else {
+        if database
+            .users
+            .iter()
+            .any(|user| user.nick.eq_ignore_ascii_case(nick))
+        {
+            return Err((
+                StatusCode::CONFLICT,
+                "Bu kullanıcı adı zaten kullanılıyor.".into(),
+            ));
+        }
+        let new_user = User {
+            email: email.clone(),
+            nick: nick.to_string(),
+            password_hash: hash_password(&payload.password)?,
+            disabled: false,
+        };
+        database.users.push(new_user.clone());
+        persist_database(&database).await.map_err(|error| {
+            eprintln!("Yeni kullanıcı kaydedilemedi: {error}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Hesap kaydedilemedi.".into(),
+            )
+        })?;
+        new_user
+    };
+    let session = Uuid::new_v4().to_string();
+    database.sessions.insert(
+        session.clone(),
+        Session {
+            email: user.email.clone(),
+        },
+    );
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Oturum kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Oturum kalıcı olarak kaydedilemedi.".into(),
+        )
+    })?;
+    Ok(Json(AuthResponse {
+        session,
+        nick: user.nick,
+        email: user.email,
+    }))
+}
+
+async fn get_authenticated_email(
+    headers: &HeaderMap,
+    state: &AppState,
+) -> Result<String, (StatusCode, String)> {
+    let token = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Oturum açmanız gerekiyor.".into()))?;
+    let database = state.database.lock().await;
+    let session = database.sessions.get(token).cloned().ok_or_else(|| {
+        (
+            StatusCode::UNAUTHORIZED,
+            "Oturum geçersiz. Lütfen yeniden giriş yapın.".into(),
+        )
+    })?;
+    Ok(session.email)
+}
+
+async fn get_session_user(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<SessionUser>, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let database = state.database.lock().await;
+    let user = database
+        .users
+        .iter()
+        .find(|user| user.email == email && !user.disabled)
+        .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Hesap bulunamadı.".into()))?;
+    Ok(Json(SessionUser {
+        nick: user.nick.clone(),
+        email: user.email.clone(),
+    }))
+}
+
+async fn logout(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    if let Some(token) = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+    {
+        let mut database = state.database.lock().await;
+        database.sessions.remove(token);
+        persist_database(&database).await.map_err(|error| {
+            eprintln!("Oturum kapatılamadı: {error}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Oturum kapatılırken kayıt güncellenemedi.".into(),
+            )
+        })?;
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn change_password(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<ChangePasswordPayload>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    if !(8..=128).contains(&payload.new_password.chars().count()) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Yeni şifre 8-128 karakter olmalı.".into(),
+        ));
+    }
+    let email = get_authenticated_email(&headers, &state).await?;
+    let mut database = state.database.lock().await;
+    let user = database
+        .users
+        .iter_mut()
+        .find(|user| user.email == email && !user.disabled)
+        .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Hesap bulunamadı.".into()))?;
+    if !verify_password(&payload.current_password, &user.password_hash) {
+        return Err((StatusCode::UNAUTHORIZED, "Mevcut şifre hatalı.".into()));
+    }
+    user.password_hash = hash_password(&payload.new_password)?;
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Şifre değişikliği kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Şifre değişikliği kaydedilemedi.".into(),
+        )
+    })?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn change_nickname(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<NicknamePayload>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let nick = payload.nick.trim();
+    if nick.is_empty() || nick.chars().count() > 32 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Kullanıcı adı 1-32 karakter olmalı.".into(),
+        ));
+    }
+    let email = get_authenticated_email(&headers, &state).await?;
+    let mut database = state.database.lock().await;
+    if database
+        .users
+        .iter()
+        .any(|user| user.email != email && user.nick.eq_ignore_ascii_case(nick))
+    {
+        return Err((
+            StatusCode::CONFLICT,
+            "Bu kullanıcı adı zaten kullanılıyor.".into(),
+        ));
+    }
+    let user = database
+        .users
+        .iter_mut()
+        .find(|user| user.email == email && !user.disabled)
+        .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Hesap bulunamadı.".into()))?;
+    user.nick = nick.to_string();
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Kullanıcı adı kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Kullanıcı adı kaydedilemedi.".into(),
+        )
+    })?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn deactivate_account(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let mut database = state.database.lock().await;
+    let user = database
+        .users
+        .iter_mut()
+        .find(|user| user.email == email)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "Hesap bulunamadı.".into()))?;
+    user.disabled = true;
+    database
+        .sessions
+        .retain(|_, session| session.email != email);
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Hesap durumu kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Hesap durumu kaydedilemedi.".into(),
+        )
+    })?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn delete_account(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let mut database = state.database.lock().await;
+    database.users.retain(|user| user.email != email);
+    database
+        .friend_requests
+        .retain(|request| request.from_email != email && request.to_email != email);
+    database
+        .friendships
+        .retain(|friendship| friendship.user_a != email && friendship.user_b != email);
+    database.stories.retain(|story| story.author_email != email);
+    database
+        .direct_messages
+        .retain(|message| message.from_email != email && message.to_email != email);
+    database
+        .sessions
+        .retain(|_, session| session.email != email);
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Hesap silinemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Hesap silinemedi.".into(),
+        )
+    })?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn get_friends(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<FriendListResponse>, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let database = state.database.lock().await;
+    let friends = database
+        .friendships
+        .iter()
+        .filter_map(|friendship| {
+            let friend_email = if friendship.user_a == email {
+                &friendship.user_b
+            } else if friendship.user_b == email {
+                &friendship.user_a
+            } else {
+                return None;
+            };
+            database
+                .users
+                .iter()
+                .find(|user| user.email == *friend_email && !user.disabled)
+                .map(|user| user.nick.clone())
+        })
+        .collect();
+    let requests = database
+        .friend_requests
+        .iter()
+        .filter(|request| request.to_email == email)
+        .filter_map(|request| {
+            database
+                .users
+                .iter()
+                .find(|user| user.email == request.from_email && !user.disabled)
+                .map(|user| IncomingFriendRequest {
+                    id: request.id.clone(),
+                    nick: user.nick.clone(),
+                })
+        })
+        .collect();
+    Ok(Json(FriendListResponse { friends, requests }))
+}
+
+async fn create_friend_request(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<CreateFriendRequestPayload>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let target_nick = payload.nick.trim();
+    let mut database = state.database.lock().await;
+    let target_email = database
+        .users
+        .iter()
+        .find(|user| user.nick.eq_ignore_ascii_case(target_nick) && !user.disabled)
+        .map(|user| user.email.clone())
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "Bu kullanıcı bulunamadı.".into()))?;
+    if target_email == email {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Kendine arkadaşlık isteği gönderemezsin.".into(),
+        ));
+    }
+    if database.friendships.iter().any(|friendship| {
+        (friendship.user_a == email && friendship.user_b == target_email)
+            || (friendship.user_b == email && friendship.user_a == target_email)
+    }) {
+        return Err((StatusCode::CONFLICT, "Bu kullanıcı zaten arkadaşın.".into()));
+    }
+    if database.friend_requests.iter().any(|request| {
+        (request.from_email == email && request.to_email == target_email)
+            || (request.from_email == target_email && request.to_email == email)
+    }) {
+        return Err((
+            StatusCode::CONFLICT,
+            "Bu kullanıcıyla bekleyen bir arkadaşlık isteği var.".into(),
+        ));
+    }
+    database.friend_requests.push(FriendRequest {
+        id: Uuid::new_v4().to_string(),
+        from_email: email,
+        to_email: target_email,
+    });
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Arkadaşlık isteği kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Arkadaşlık isteği gönderilemedi.".into(),
+        )
+    })?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn accept_friend_request(
+    Path(request_id): Path<String>,
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let mut database = state.database.lock().await;
+    let index = database
+        .friend_requests
+        .iter()
+        .position(|request| request.id == request_id && request.to_email == email)
+        .ok_or_else(|| {
+            (
+                StatusCode::NOT_FOUND,
+                "Arkadaşlık isteği bulunamadı.".into(),
+            )
+        })?;
+    let request = database.friend_requests.remove(index);
+    database.friendships.push(Friendship {
+        user_a: email,
+        user_b: request.from_email,
+    });
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Arkadaşlık kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Arkadaşlık onaylanamadı.".into(),
+        )
+    })?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn get_direct_messages(
+    Query(query): Query<DirectMessageQuery>,
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<DirectMessageResponse>>, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let database = state.database.lock().await;
+    let recipient = database
+        .users
+        .iter()
+        .find(|user| !user.disabled && user.nick.eq_ignore_ascii_case(query.nick.trim()))
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "Kullanıcı bulunamadı.".into()))?;
+    let recipient_email = recipient.email.clone();
+    if email == recipient_email {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Kendinle özel mesajlaşma başlatamazsın.".into(),
+        ));
+    }
+    if !are_friends(&database, &email, &recipient_email) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Özel mesajlar yalnızca arkadaşlar arasında gönderilebilir.".into(),
+        ));
+    }
+
+    let mut messages: Vec<DirectMessageResponse> = database
+        .direct_messages
+        .iter()
+        .filter(|message| {
+            (message.from_email == email && message.to_email == recipient_email)
+                || (message.from_email == recipient_email && message.to_email == email)
+        })
+        .map(|message| DirectMessageResponse {
+            id: message.id.clone(),
+            from_nick: message.from_nick.clone(),
+            text: message.text.clone(),
+            created_at: message.created_at,
+        })
+        .collect();
+    messages.sort_by_key(|message| message.created_at);
+    Ok(Json(messages))
+}
+
+async fn send_direct_message(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<SendDirectMessagePayload>,
+) -> Result<Json<DirectMessageResponse>, (StatusCode, String)> {
+    let text = payload.text.trim();
+    if text.is_empty() || text.chars().count() > 2000 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Mesaj 1-2000 karakter arasında olmalı.".into(),
+        ));
+    }
+    let email = get_authenticated_email(&headers, &state).await?;
+    let mut database = state.database.lock().await;
+    let sender = database
+        .users
+        .iter()
+        .find(|user| user.email == email && !user.disabled)
+        .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Hesap bulunamadı.".into()))?;
+    let from_nick = sender.nick.clone();
+    let recipient = database
+        .users
+        .iter()
+        .find(|user| !user.disabled && user.nick.eq_ignore_ascii_case(payload.to_nick.trim()))
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "Kullanıcı bulunamadı.".into()))?;
+    let recipient_email = recipient.email.clone();
+    if email == recipient_email {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Kendine özel mesaj gönderemezsin.".into(),
+        ));
+    }
+    if !are_friends(&database, &email, &recipient_email) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Özel mesajlar yalnızca arkadaşlar arasında gönderilebilir.".into(),
+        ));
+    }
+
+    let message = DirectMessage {
+        id: Uuid::new_v4().to_string(),
+        from_email: email,
+        to_email: recipient_email,
+        from_nick,
+        text: text.to_string(),
+        created_at: now_unix(),
+    };
+    database.direct_messages.push(message.clone());
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Özel mesaj kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Mesaj gönderilemedi.".into(),
+        )
+    })?;
+    Ok(Json(DirectMessageResponse {
+        id: message.id,
+        from_nick: message.from_nick,
+        text: message.text,
+        created_at: message.created_at,
+    }))
+}
+
+async fn get_stories(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<StoryModel>>, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let mut database = state.database.lock().await;
+    let now = now_unix();
+    database.stories.retain(|story| !story_expired(story, now));
+    let friends: HashSet<String> = database
+        .friendships
+        .iter()
+        .filter_map(|friendship| {
+            if friendship.user_a == email {
+                Some(friendship.user_b.clone())
+            } else if friendship.user_b == email {
+                Some(friendship.user_a.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
+    let stories = database
+        .stories
+        .iter()
+        .filter(|story| can_view_story(&story.author_email, &email, &friends))
+        .cloned()
+        .collect();
+    Ok(Json(stories))
+}
+
+async fn create_story(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<CreateStoryPayload>,
+) -> Result<Json<StoryModel>, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let text = payload.text.trim();
+    if text.chars().count() > 500 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Hikaye metni en fazla 500 karakter olabilir.".into(),
+        ));
+    }
+    if text.is_empty() && payload.image.is_none() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Hikaye metni veya resmi gerekli.".into(),
+        ));
+    }
+    if let Some(image) = &payload.image {
+        let allowed_type = [
+            "data:image/png;base64,",
+            "data:image/jpeg;base64,",
+            "data:image/webp;base64,",
+            "data:image/gif;base64,",
+        ]
+        .iter()
+        .any(|prefix| image.starts_with(prefix));
+        if !allowed_type || image.len() > 1_500_000 {
+            return Err((
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "Resim türü desteklenmiyor veya dosya çok büyük.".into(),
+            ));
+        }
+    }
+    let now = now_unix();
+    let mut database = state.database.lock().await;
+    let author = database
+        .users
+        .iter()
+        .find(|user| user.email == email && !user.disabled)
+        .map(|user| user.nick.clone())
+        .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Hesap bulunamadı.".into()))?;
+    let story = StoryModel {
+        id: Uuid::new_v4().to_string(),
+        author_email: email,
+        author,
+        text: text.to_string(),
+        image: payload.image,
+        created_at: now,
+        expires_at: now + 24 * 60 * 60,
+    };
+    database.stories.push(story.clone());
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Hikaye kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Hikaye paylaşılamadı.".into(),
+        )
+    })?;
+    Ok(Json(story))
+}
+
+// 1. Postları Getir (Ev Sekmesi)
+async fn get_posts(State(state): State<Arc<AppState>>) -> Json<Vec<PostModel>> {
+    let posts = state.posts.lock().await;
+    Json(posts.clone())
+}
+
+// 2. Yeni Post Gönder (Resim/Yazı Paylaşımı)
+async fn create_post(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<CreatePostPayload>,
+) -> Json<PostModel> {
+    let mut posts = state.posts.lock().await;
+    let new_post = PostModel {
+        id: (posts.len() + 1) as u64,
+        author: payload.author,
+        content: payload.content,
+        likes: 0,
+        created_at: "Şimdi".into(),
+    };
+    posts.insert(0, new_post.clone()); // En başa ekle
+    Json(new_post)
+}
+
+// 3. Post Beğen (Like Butonu)
+async fn like_post(Path(id): Path<u64>, State(state): State<Arc<AppState>>) -> Json<String> {
+    let mut posts = state.posts.lock().await;
+    if let Some(post) = posts.iter_mut().find(|p| p.id == id) {
+        post.likes += 1;
+        return Json("Beğenildi!".into());
+    }
+    Json("Post bulunamadı.".into())
+}
+
+fn default_groups() -> Vec<GroupModel> {
+    ["Yazılım Topluluğu", "Gamer Odası"]
+        .into_iter()
+        .enumerate()
+        .map(|(index, name)| GroupModel {
+            id: index as u64 + 1,
+            name: name.into(),
+            members_count: if index == 0 { 15 } else { 8 },
+            owner_email: None,
+            moderator_emails: Vec::new(),
+            categories: vec![
+                ChannelCategory {
+                    id: "general".into(),
+                    name: "GENEL".into(),
+                    channels: vec![GroupChannel {
+                        id: "general-chat".into(),
+                        name: "genel-sohbet".into(),
+                        kind: "text".into(),
+                    }],
+                },
+                ChannelCategory {
+                    id: "voice".into(),
+                    name: "SES ODALARI".into(),
+                    channels: vec![GroupChannel {
+                        id: "voice-room".into(),
+                        name: "Ses Odası".into(),
+                        kind: "voice".into(),
+                    }],
+                },
+            ],
+        })
+        .collect()
+}
+
+fn group_view(group: &GroupModel, email: &str, database: &Database) -> GroupView {
+    let role = if group.owner_email.as_deref() == Some(email) {
+        "founder"
+    } else if group
+        .moderator_emails
+        .iter()
+        .any(|moderator| moderator == email)
+    {
+        "moderator"
+    } else {
+        "member"
+    };
+    let owner = group
+        .owner_email
+        .as_deref()
+        .and_then(|owner_email| database.users.iter().find(|user| user.email == owner_email))
+        .map(|user| user.nick.clone())
+        .unwrap_or_else(|| "Topluluk kurucusu".into());
+    GroupView {
+        id: group.id,
+        name: group.name.clone(),
+        members_count: group.members_count,
+        owner,
+        role: role.into(),
+        categories: group.categories.clone(),
+    }
+}
+
+fn can_manage_group_channels(group: &GroupModel, email: &str) -> bool {
+    group.owner_email.as_deref() == Some(email)
+        || group
+            .moderator_emails
+            .iter()
+            .any(|moderator| moderator == email)
+}
+
+fn can_assign_group_moderators(group: &GroupModel, email: &str) -> bool {
+    group.owner_email.as_deref() == Some(email)
+}
+
+async fn get_groups(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<GroupView>>, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let database = state.database.lock().await;
+    Ok(Json(
+        database
+            .groups
+            .iter()
+            .map(|group| group_view(group, &email, &database))
+            .collect(),
+    ))
+}
+
+async fn create_group(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<CreateGroupPayload>,
+) -> Result<Json<GroupView>, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let name = payload.name.trim();
+    if name.is_empty() || name.chars().count() > 64 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Grup adı 1-64 karakter olmalı.".into(),
+        ));
+    }
+    let mut database = state.database.lock().await;
+    let new_group = GroupModel {
+        id: database
+            .groups
+            .iter()
+            .map(|group| group.id)
+            .max()
+            .unwrap_or(0)
+            + 1,
+        name: name.to_string(),
+        members_count: 1,
+        owner_email: Some(email.clone()),
+        moderator_emails: Vec::new(),
+        categories: default_groups()[0].categories.clone(),
+    };
+    database.groups.push(new_group.clone());
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Yeni topluluk kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Topluluk kaydedilemedi.".into(),
+        )
+    })?;
+    Ok(Json(group_view(&new_group, &email, &database)))
+}
+
+async fn add_group_channel(
+    Path(group_id): Path<u64>,
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<AddGroupChannelPayload>,
+) -> Result<Json<GroupView>, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let name = payload.name.trim();
+    let category_name = payload.category.trim();
+    if name.is_empty()
+        || name.chars().count() > 48
+        || category_name.is_empty()
+        || category_name.chars().count() > 40
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Kategori ve kanal adı geçerli olmalı.".into(),
+        ));
+    }
+    if payload.kind != "text" && payload.kind != "voice" {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Kanal türü text veya voice olmalı.".into(),
+        ));
+    }
+    let mut database = state.database.lock().await;
+    let group = database
+        .groups
+        .iter_mut()
+        .find(|group| group.id == group_id)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "Topluluk bulunamadı.".into()))?;
+    if !can_manage_group_channels(group, &email) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Kanal eklemek için kurucu veya moderatör olmalısınız.".into(),
+        ));
+    }
+    let category_id = category_name.to_lowercase().replace(' ', "-");
+    let category_index = group
+        .categories
+        .iter()
+        .position(|category| category.name.eq_ignore_ascii_case(category_name));
+    let category = if let Some(index) = category_index {
+        &mut group.categories[index]
+    } else {
+        group.categories.push(ChannelCategory {
+            id: category_id.clone(),
+            name: category_name.to_string(),
+            channels: Vec::new(),
+        });
+        group.categories.last_mut().expect("kategori eklendi")
+    };
+    if category
+        .channels
+        .iter()
+        .any(|channel| channel.name.eq_ignore_ascii_case(name))
+    {
+        return Err((
+            StatusCode::CONFLICT,
+            "Bu kategoride aynı isimli kanal zaten var.".into(),
+        ));
+    }
+    category.channels.push(GroupChannel {
+        id: format!("{}-{}", category_id, category.channels.len() + 1),
+        name: name.to_string(),
+        kind: payload.kind,
+    });
+    let group = group.clone();
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Topluluk kanalı kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Kanal kaydedilemedi.".into(),
+        )
+    })?;
+    Ok(Json(group_view(&group, &email, &database)))
+}
+
+async fn assign_group_moderator(
+    Path(group_id): Path<u64>,
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<AssignGroupModeratorPayload>,
+) -> Result<Json<GroupView>, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let target_nick = payload.nick.trim();
+    if target_nick.is_empty() || target_nick.chars().count() > 32 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Geçerli bir kullanıcı adı girin.".into(),
+        ));
+    }
+    let mut database = state.database.lock().await;
+    let target = database
+        .users
+        .iter()
+        .find(|user| user.nick.eq_ignore_ascii_case(target_nick) && !user.disabled)
+        .cloned()
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "Kullanıcı bulunamadı.".into()))?;
+    let group = database
+        .groups
+        .iter_mut()
+        .find(|group| group.id == group_id)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "Topluluk bulunamadı.".into()))?;
+    if !can_assign_group_moderators(group, &email) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Moderatörleri yalnızca kurucu atayabilir.".into(),
+        ));
+    }
+    if group.owner_email.as_deref() == Some(target.email.as_str()) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Kurucu zaten tüm yönetim yetkilerine sahip.".into(),
+        ));
+    }
+    if !group.moderator_emails.contains(&target.email) {
+        group.moderator_emails.push(target.email);
+    }
+    let group = group.clone();
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Moderatör ataması kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Moderatör ataması kaydedilemedi.".into(),
+        )
+    })?;
+    Ok(Json(group_view(&group, &email, &database)))
+}
+
+// 6. Bildirimleri Getir (Bilgilendirme / Haber Sekmesi)
+async fn get_notifications(State(state): State<Arc<AppState>>) -> Json<Vec<NotificationModel>> {
+    let notifications = state.notifications.lock().await;
+    Json(notifications.clone())
+}
+
+// 7. WebSocket Sohbet Motoru (Mesaj Sekmesi & DM)
+async fn websocket_handler(
+    ws: WebSocketUpgrade,
+    State(state): State<Arc<AppState>>,
+) -> impl axum::response::IntoResponse {
+    ws.on_upgrade(move |socket| handle_socket(socket, state.tx.clone()))
+}
+
+async fn group_websocket_handler(
+    Path(group_id): Path<u64>,
+    ws: WebSocketUpgrade,
+    State(state): State<Arc<AppState>>,
+) -> Result<impl axum::response::IntoResponse, StatusCode> {
+    if !state
+        .database
+        .lock()
+        .await
+        .groups
+        .iter()
+        .any(|group| group.id == group_id)
+    {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    let tx = {
+        let mut channels = state.group_channels.lock().await;
+        channels
+            .entry(group_id)
+            .or_insert_with(|| broadcast::channel(100).0)
+            .clone()
+    };
+    Ok(ws.on_upgrade(move |socket| handle_socket(socket, tx)))
+}
+
+async fn handle_socket(socket: WebSocket, tx: broadcast::Sender<String>) {
+    let (mut sender, mut receiver) = socket.split();
+    let mut rx = tx.subscribe();
+
+    let mut send_task = tokio::spawn(async move {
+        while let Ok(msg) = rx.recv().await {
+            if sender.send(Message::Text(msg)).await.is_err() {
+                break;
+            }
+        }
+    });
+
+    let mut recv_task = tokio::spawn(async move {
+        while let Some(Ok(Message::Text(text))) = receiver.next().await {
+            let _ = tx.send(text);
+        }
+    });
+
+    tokio::select! {
+        _ = (&mut send_task) => recv_task.abort(),
+        _ = (&mut recv_task) => send_task.abort(),
+    };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validates_email_syntax() {
+        assert!(validate_email("user@example.com"));
+        assert!(!validate_email("user@localhost"));
+        assert!(!validate_email("not-an-email"));
+        assert!(!validate_email("user @example.com"));
+    }
+
+    #[test]
+    fn expires_story_at_24_hour_boundary() {
+        let story = StoryModel {
+            id: "story".into(),
+            author_email: "user@example.com".into(),
+            author: "user".into(),
+            text: "Hello".into(),
+            image: None,
+            created_at: 10_000,
+            expires_at: 10_000 + 24 * 60 * 60,
+        };
+
+        assert!(!story_expired(&story, story.expires_at - 1));
+        assert!(story_expired(&story, story.expires_at));
+    }
+
+    #[test]
+    fn stories_are_visible_only_to_the_owner_and_friends() {
+        let friends = HashSet::from(["friend@example.com".to_string()]);
+
+        assert!(can_view_story(
+            "owner@example.com",
+            "owner@example.com",
+            &friends
+        ));
+        assert!(can_view_story(
+            "friend@example.com",
+            "viewer@example.com",
+            &friends
+        ));
+        assert!(!can_view_story(
+            "stranger@example.com",
+            "viewer@example.com",
+            &friends
+        ));
+    }
+
+    #[test]
+    fn sessions_survive_database_serialization_and_legacy_data_loads() {
+        let mut database = Database::default();
+        database.sessions.insert(
+            "persistent-session".into(),
+            Session {
+                email: "user@example.com".into(),
+            },
+        );
+
+        let serialized = serde_json::to_string(&database).unwrap();
+        let restored: Database = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(
+            restored.sessions.get("persistent-session").unwrap().email,
+            "user@example.com"
+        );
+
+        let legacy: Database = serde_json::from_str("{}").unwrap();
+        assert!(legacy.sessions.is_empty());
+        assert!(legacy.groups.is_empty());
+    }
+
+    #[test]
+    fn group_creator_and_moderator_permissions_are_server_side_and_persisted() {
+        let group = GroupModel {
+            id: 3,
+            name: "Test".into(),
+            members_count: 1,
+            owner_email: Some("founder@example.com".into()),
+            moderator_emails: vec!["mod@example.com".into()],
+            categories: default_groups()[0].categories.clone(),
+        };
+        assert!(can_manage_group_channels(&group, "founder@example.com"));
+        assert!(can_manage_group_channels(&group, "mod@example.com"));
+        assert!(!can_manage_group_channels(&group, "member@example.com"));
+        assert!(can_assign_group_moderators(&group, "founder@example.com"));
+        assert!(!can_assign_group_moderators(&group, "mod@example.com"));
+
+        let database = Database {
+            groups: vec![group.clone()],
+            ..Database::default()
+        };
+        let serialized = serde_json::to_string(&database).unwrap();
+        let restored: Database = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(
+            restored.groups[0].owner_email.as_deref(),
+            Some("founder@example.com")
+        );
+        assert_eq!(
+            restored.groups[0].categories[0].channels[0].name,
+            "genel-sohbet"
+        );
+
+        let view = group_view(&group, "founder@example.com", &database);
+        let public_json = serde_json::to_value(view).unwrap();
+        assert_eq!(public_json["role"], "founder");
+        assert!(public_json.get("owner_email").is_none());
+        assert!(public_json.get("moderator_emails").is_none());
+    }
+
+    #[test]
+    fn legacy_groups_load_without_new_role_or_category_fields() {
+        let group: GroupModel =
+            serde_json::from_str(r#"{"id":1,"name":"Legacy","members_count":4}"#).unwrap();
+        assert!(group.owner_email.is_none());
+        assert!(group.moderator_emails.is_empty());
+        assert!(group.categories.is_empty());
+
+        let mut legacy_database: Database =
+            serde_json::from_str(r#"{"groups":[{"id":1,"name":"Legacy","members_count":4}]}"#)
+                .unwrap();
+        legacy_database.groups[0].categories = default_groups()[0].categories.clone();
+        let upgraded: Database =
+            serde_json::from_str(&serde_json::to_string(&legacy_database).unwrap()).unwrap();
+        assert_eq!(upgraded.groups[0].categories[0].name, "GENEL");
+    }
+
+    #[test]
+    fn direct_messages_require_friendship_and_keep_emails_out_of_api_responses() {
+        let mut database = Database::default();
+        database.friendships.push(Friendship {
+            user_a: "alice@example.com".into(),
+            user_b: "bob@example.com".into(),
+        });
+        assert!(are_friends(
+            &database,
+            "alice@example.com",
+            "bob@example.com"
+        ));
+        assert!(!are_friends(
+            &database,
+            "alice@example.com",
+            "stranger@example.com"
+        ));
+
+        let message = DirectMessage {
+            id: "message-id".into(),
+            from_email: "alice@example.com".into(),
+            to_email: "bob@example.com".into(),
+            from_nick: "Alice".into(),
+            text: "hello".into(),
+            created_at: 1,
+        };
+        database.direct_messages.push(message.clone());
+        let stored = serde_json::to_value(&database).unwrap();
+        assert_eq!(
+            stored["direct_messages"][0]["from_email"],
+            "alice@example.com"
+        );
+        let response = serde_json::to_value(DirectMessageResponse {
+            id: message.id,
+            from_nick: message.from_nick,
+            text: message.text,
+            created_at: message.created_at,
+        })
+        .unwrap();
+        assert!(response.get("from_email").is_none());
+        assert!(response.get("to_email").is_none());
+    }
+
+    #[test]
+    fn direct_messages_survive_database_serialization() {
+        let mut database = Database::default();
+        database.direct_messages.push(DirectMessage {
+            id: "message-id".into(),
+            from_email: "alice@example.com".into(),
+            to_email: "bob@example.com".into(),
+            from_nick: "Alice".into(),
+            text: "hello".into(),
+            created_at: 1,
+        });
+
+        let serialized = serde_json::to_string(&database).unwrap();
+        let restored: Database = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(restored.direct_messages.len(), 1);
+        assert_eq!(restored.direct_messages[0].from_email, "alice@example.com");
+        assert_eq!(restored.direct_messages[0].text, "hello");
+    }
+}

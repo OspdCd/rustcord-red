@@ -1,0 +1,2444 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RustCord - Red Edition</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Inter, sans-serif; user-select: none; }
+        body { background: #08080a; color: #e2e8f0; height: 100vh; overflow: hidden; display: flex; position: relative; }
+
+        .top-right-watermark {
+            position: fixed; top: 10px; right: 20px;
+            color: rgba(255, 255, 255, 0.15); font-size: 11px; z-index: 9999; pointer-events: none;
+        }
+
+        /* --- AUTH SCREEN --- */
+        #auth-screen {
+            position: fixed; inset: 0; z-index: 9999; display: flex; justify-content: center; align-items: center;
+            overflow-y: auto; padding: 32px;
+            background:
+                radial-gradient(ellipse at 18% 18%, rgba(153, 27, 27, .24), transparent 36%),
+                radial-gradient(ellipse at 84% 85%, rgba(127, 29, 29, .16), transparent 34%),
+                #08080a;
+        }
+        .auth-card {
+            display: grid; grid-template-columns: minmax(0, .9fr) minmax(380px, 1.1fr);
+            width: min(900px, 100%); min-height: 560px; overflow: hidden;
+            border: 1px solid #29252a; border-radius: 24px;
+            background: #101014; box-shadow: 0 32px 100px rgba(0, 0, 0, .6), 0 0 70px rgba(153, 27, 27, .12);
+        }
+        .auth-showcase {
+            position: relative; display: flex; flex-direction: column; justify-content: space-between;
+            min-height: 100%; overflow: hidden; padding: 38px;
+            background: linear-gradient(150deg, rgba(127, 29, 29, .56), rgba(36, 12, 17, .92) 54%, #111014);
+        }
+        .auth-showcase::before, .auth-showcase::after {
+            position: absolute; content: ""; border: 1px solid rgba(255, 255, 255, .09); border-radius: 50%;
+            pointer-events: none;
+        }
+        .auth-showcase::before { width: 360px; height: 360px; right: -170px; top: 115px; box-shadow: 0 0 0 34px rgba(255,255,255,.025), 0 0 0 70px rgba(255,255,255,.02); }
+        .auth-showcase::after { width: 220px; height: 220px; right: -100px; top: 185px; }
+        .auth-brand { position: relative; z-index: 1; display: flex; align-items: center; gap: 12px; color: #fff; font-size: 14px; font-weight: 800; letter-spacing: .12em; }
+        .auth-brand-mark { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid rgba(255,255,255,.18); border-radius: 14px; background: linear-gradient(145deg, #ef4444, #991b1b); box-shadow: 0 8px 26px rgba(220,38,38,.25); font-size: 21px; }
+        .auth-showcase-copy { position: relative; z-index: 1; max-width: 340px; padding: 54px 0 34px; }
+        .auth-eyebrow { margin-bottom: 16px; color: #fca5a5; font-size: 11px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
+        .auth-showcase h1 { max-width: 330px; color: #fff; font-size: clamp(32px, 4vw, 48px); line-height: 1.08; letter-spacing: -.045em; }
+        .auth-showcase-copy p { margin-top: 16px; color: #c4bfc4; font-size: 14px; line-height: 1.75; }
+        .auth-feature-list { position: relative; z-index: 1; display: grid; gap: 12px; color: #e4dfe3; font-size: 12px; }
+        .auth-feature { display: flex; align-items: center; gap: 10px; }
+        .auth-feature-icon { display: grid; width: 26px; height: 26px; place-items: center; border: 1px solid rgba(252,165,165,.2); border-radius: 8px; background: rgba(127,29,29,.3); color: #fca5a5; }
+        .auth-form-panel { display: flex; align-items: center; justify-content: center; padding: 48px clamp(28px, 5vw, 64px); }
+        .auth-form { display: flex; width: min(100%, 360px); flex-direction: column; gap: 17px; }
+        .auth-form-heading h2 { color: #fff; font-size: 27px; font-weight: 750; letter-spacing: -.035em; }
+        .auth-form-heading p { margin-top: 8px; color: #92909a; font-size: 13px; line-height: 1.6; }
+        .auth-field { display: flex; flex-direction: column; gap: 8px; }
+        .auth-field label { color: #d4d0d6; font-size: 12px; font-weight: 650; }
+        .auth-input {
+            width: 100%; min-height: 46px; padding: 12px 14px; border: 1px solid #302d35; border-radius: 10px;
+            outline: none; background: #17171d; color: #fff; font-size: 14px; transition: border-color .18s, box-shadow .18s, background .18s;
+        }
+        .auth-input::placeholder { color: #686671; }
+        .auth-input:hover { border-color: #45404a; }
+        .auth-input:focus { border-color: #ef4444; background: #19171c; box-shadow: 0 0 0 3px rgba(239,68,68,.12); }
+        .auth-note { color: #77747e; font-size: 11px; line-height: 1.5; }
+        #turnstile-container { display: flex; min-height: 0; justify-content: center; overflow: hidden; }
+        .auth-status { min-height: 0; padding: 0; border: 0; border-radius: 9px; background: transparent; color: #fca5a5; line-height: 1.5; }
+        .auth-status:not(:empty) { padding: 10px 12px; border: 1px solid rgba(248,113,113,.18); background: rgba(127,29,29,.16); }
+        .auth-card .auth-btn { min-height: 48px; padding: 12px 16px; border: 1px solid rgba(255,255,255,.08); border-radius: 10px; background: linear-gradient(135deg, #dc2626, #991b1b); color: #fff; font-size: 14px; font-weight: 750; cursor: pointer; transition: transform .18s, filter .18s, opacity .18s; }
+        .auth-card .auth-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.1); }
+        .auth-card .auth-btn:active:not(:disabled) { transform: translateY(0); }
+        .auth-card .auth-btn:disabled { cursor: not-allowed; filter: saturate(.55); opacity: .55; }
+        .auth-btn {
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            border: none; padding: 12px; border-radius: 10px; color: white; font-weight: 700;
+            cursor: pointer; transition: 0.2s;
+        }
+        .auth-btn:hover { opacity: 0.9; }
+        .auth-link { align-self: center; padding: 5px 8px; border: 0; background: none; color: #aaa6b0; cursor: pointer; font-size: 12px; transition: color .18s; }
+        .auth-link:hover { color: #fff; }
+        .status-message { min-height: 16px; color: #fca5a5; font-size: 12px; text-align: center; }
+        @media (max-width: 720px) {
+            #auth-screen { align-items: flex-start; padding: 18px; }
+            .auth-card { grid-template-columns: 1fr; width: min(460px, 100%); min-height: 0; margin: auto; border-radius: 20px; }
+            .auth-showcase { min-height: 160px; padding: 22px 24px; }
+            .auth-showcase-copy { padding: 24px 0 0; }
+            .auth-showcase-copy h1 { max-width: 260px; font-size: 30px; }
+            .auth-showcase-copy p, .auth-feature-list { display: none; }
+            .auth-eyebrow { margin-bottom: 9px; }
+            .auth-showcase::before { width: 230px; height: 230px; top: -88px; right: -40px; }
+            .auth-showcase::after { width: 145px; height: 145px; top: -45px; right: 5px; }
+            .auth-form-panel { padding: 28px 24px 24px; }
+        }
+        @media (max-width: 380px) {
+            #auth-screen { padding: 10px; }
+            .auth-showcase { min-height: 138px; padding: 18px; }
+            .auth-showcase-copy { padding-top: 18px; }
+            .auth-showcase-copy h1 { font-size: 26px; }
+            .auth-form-panel { padding: 24px 18px 20px; }
+        }
+
+        /* --- MAIN APP --- */
+        #app-screen { display: none; width: 100vw; height: 100vh; overflow: hidden; }
+
+        .far-left-bar {
+            width: 56px; background: #0c0c0e; border-right: 1px solid #1a1a20;
+            display: flex; flex-direction: column; align-items: center; padding: 16px 0; gap: 16px;
+        }
+        .brand-logo {
+            width: 36px; height: 36px; background: #dc2626; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 18px;
+            box-shadow: 0 0 15px rgba(220, 38, 38, 0.5); cursor: pointer;
+        }
+        .left-icon {
+            width: 38px; height: 38px; border-radius: 10px; color: #71717a;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; font-size: 16px;
+        }
+        .left-icon:hover, .left-icon.active { background: rgba(220, 38, 38, 0.15); color: #ef4444; }
+
+        .left-sidebar {
+            width: 250px; background: #101014; border-right: 1px solid #1a1a20;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .search-box { padding: 14px 12px; border-bottom: 1px solid #1a1a20; display: flex; gap: 6px; }
+        .search-input {
+            flex: 1; background: #16161c; border: 1px solid #22222a; padding: 8px 12px;
+            border-radius: 8px; color: #a1a1aa; font-size: 12px; outline: none;
+        }
+        .add-friend-btn-small {
+            background: #dc2626; border: none; width: 32px; border-radius: 8px; color: white;
+            cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center;
+        }
+        .user-section { flex: 1; overflow-y: auto; padding: 12px 8px; display: flex; flex-direction: column; gap: 12px; }
+        .section-header { color: #71717a; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 0 8px; }
+        .user-item {
+            display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px;
+            cursor: pointer; transition: 0.2s;
+        }
+        .user-item:hover { background: #181820; }
+        .avatar-wrap { position: relative; width: 32px; height: 32px; flex-shrink: 0; }
+        .avatar-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; background: #7f1d1d; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 12px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; position: absolute; bottom: 0; right: 0; border: 2px solid #101014; background: #22c55e; }
+        .user-name { font-size: 13px; font-weight: 600; color: #e4e4e7; }
+        .user-status { font-size: 10px; color: #71717a; }
+
+        .user-profile-footer {
+            padding: 10px 12px; background: #0c0c0e; border-top: 1px solid #1a1a20;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .profile-left { display: flex; align-items: center; gap: 8px; }
+        .profile-icons { display: flex; gap: 8px; color: #71717a; font-size: 14px; }
+        .profile-icons span { cursor: pointer; padding: 4px; border-radius: 4px; transition: 0.2s; }
+        .profile-icons span:hover { color: #fff; background: #1c1c24; }
+        .profile-icons span.muted { color: #ef4444 !important; background: rgba(239, 68, 68, 0.1); }
+
+        .main-feed-area { flex: 1; background: #08080a; display: flex; flex-direction: column; overflow-y: auto; }
+
+        /* Hikaye Halkaları */
+        .story-bar { padding: 16px 24px; display: flex; gap: 16px; overflow-x: auto; background: #0d0d10; border-bottom: 1px solid #16161c; }
+        .story-circle-item { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; flex-shrink: 0; }
+        .story-ring {
+            width: 58px; height: 58px; border-radius: 50%; padding: 3px;
+            background: linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+        }
+        .story-ring.add-story { background: #1c1c24; border: 2px dashed #ef4444; display: flex; align-items: center; justify-content: center; color: #ef4444; font-size: 20px; font-weight: bold; }
+        .story-img-inner { width: 100%; height: 100%; border-radius: 50%; background: #181820; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: white; border: 2px solid #0d0d10; }
+        .story-label { font-size: 11px; color: #a1a1aa; }
+
+        .create-post-card { margin: 20px 24px 0 24px; background: #101014; border: 1px solid #1a1a20; border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+        .post-input { flex: 1; background: transparent; border: none; color: #fff; font-size: 13px; outline: none; }
+        .send-post-btn { background: #ef4444; border: none; width: 32px; height: 32px; border-radius: 8px; color: white; cursor: pointer; }
+
+        .feed-stream { padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+        .post-card { background: #101014; border: 1px solid #1a1a20; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+        .post-author { font-size: 13px; font-weight: 700; color: #f4f4f5; }
+        .post-time { font-size: 10px; color: #71717a; }
+        .post-content { font-size: 13px; color: #d4d4d8; }
+
+        .reels-container { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 20px; overflow-y: auto; height: 100%; scroll-snap-type: y mandatory; }
+        .reel-search { width: min(100%, 520px); display: flex; gap: 8px; }
+        .reel-search input { flex: 1; min-width: 0; background: #16161c; border: 1px solid #26262e; padding: 10px 12px; border-radius: 8px; color: #fff; }
+        .reel-card { width: min(320px, 100%); height: min(480px, 70vh); min-height: 300px; background: #121216; border: 1px solid #26262e; border-radius: 16px; overflow: hidden; scroll-snap-align: start; flex-shrink: 0; }
+        .reel-card iframe { width: 100%; height: 100%; border: none; }
+        .community-chat { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+        .community-messages { flex: 1; min-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .community-message { padding: 8px 10px; border-radius: 8px; background: #121216; overflow-wrap: anywhere; }
+        .community-form { display: flex; gap: 8px; }
+        .community-form input { flex: 1; min-width: 0; }
+        .group-call-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+        .group-call-controls .auth-btn.active { background: #991b1b; }
+        .group-media-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
+        .group-media-tile { position: relative; min-height: 120px; background: #09090b; border: 1px solid #27272a; border-radius: 10px; overflow: hidden; }
+        .group-media-tile video { width: 100%; height: 100%; min-height: 120px; object-fit: cover; }
+        .group-media-tile span { position: absolute; left: 8px; bottom: 8px; padding: 4px 7px; border-radius: 6px; background: #000b; color: #fff; font-size: 12px; }
+        .story-photo-preview { max-width: 100%; max-height: 180px; object-fit: contain; display: none; border-radius: 8px; }
+        .settings-edit-btn:disabled, .auth-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+        .right-menu-panel { width: 240px; background: #0d0d10; border-left: 1px solid #1a1a20; padding: 20px 12px; display: flex; flex-direction: column; gap: 8px; }
+        .menu-btn { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #121216; border: 1px solid #1a1a22; border-radius: 12px; color: #a1a1aa; cursor: pointer; transition: 0.2s; font-size: 13px; font-weight: 600; }
+        .menu-btn-icon { font-size: 16px; color: #ef4444; }
+        .menu-btn:hover, .menu-btn.active { background: linear-gradient(90deg, rgba(239, 68, 68, 0.15) 0%, rgba(153, 27, 27, 0.05) 100%); border-color: rgba(239, 68, 68, 0.4); color: #fff; }
+        .menu-btn.logout { margin-top: auto; border-color: rgba(239, 68, 68, 0.2); }
+
+        .tab-content { display: none; flex: 1; flex-direction: column; }
+        .tab-content.active { display: flex; }
+        .mobile-bottom-nav { display: none; }
+        .mobile-friends { display: none; }
+        .group-category { padding: 10px 12px; margin: 8px 0; border-radius: 10px; background: #101014; }
+        .group-category-title { color: #a1a1aa; font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+        .group-channel { display: inline-flex; margin: 8px 8px 0 0; padding: 6px 9px; border-radius: 8px; background: #1a1a20; color: #e4e4e7; font-size: 12px; }
+        .group-admin-tools { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 0; }
+        .group-admin-tools input, .group-admin-tools select { min-width: 130px; flex: 1; }
+        .pull-refresh-indicator { display: none; text-align: center; color: #a1a1aa; font-size: 12px; padding: 8px; }
+        .pull-refresh-indicator.visible { display: block; }
+        @media (max-width: 720px) {
+            #app-screen { height: 100dvh; min-height: 0; }
+            .far-left-bar, .left-sidebar, .right-menu-panel { display: none; }
+            .main-feed-area { width: 100%; min-width: 0; padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+            .story-bar { padding: 12px 14px; gap: 12px; }
+            .tab-content { min-width: 0; overflow-y: auto; }
+            .tab-content[style*="padding:20px"] { padding: 14px !important; }
+            #tab-Mesaj { min-height: 0; }
+            .mobile-friends { display: flex; align-items: center; gap: 8px; overflow-x: auto; margin: 0 0 10px; padding-bottom: 6px; }
+            .mobile-friend-button { flex: 0 0 auto; border: 1px solid #292932; background: #15151b; border-radius: 999px; color: #e4e4e7; padding: 8px 12px; }
+            #tab-Mesaj h3 { font-size: 15px; }
+            #messagesBox { min-height: 120px; }
+            .community-chat { min-height: 220px; }
+            #createGroupForm { flex-wrap: wrap; }
+            #createGroupForm input { min-width: 0; flex: 1; }
+            .feed-stream { padding: 14px; }
+            .create-post-card { margin: 14px; }
+            .reels-container { padding: 12px; }
+            .mobile-bottom-nav {
+                position: fixed; z-index: 100; inset: auto 0 0; display: grid;
+                grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
+                background: rgba(13, 13, 16, .96); border-top: 1px solid #26262e; backdrop-filter: blur(12px);
+            }
+            .mobile-nav-button { border: 0; border-radius: 10px; background: transparent; color: #a1a1aa; padding: 7px 3px; font-size: 11px; }
+            .mobile-nav-button span { display: block; font-size: 18px; margin-bottom: 2px; }
+            .mobile-nav-button.active { color: #fff; background: rgba(239, 68, 68, .16); }
+            .group-call-controls .auth-btn { flex: 1 1 42%; }
+        }
+
+        /* MODALLAR (Arkadaş Ekle / Hikaye Ekle) */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 10000; }
+        #password-modal { z-index: 10002; }
+        .modal-card { background: #121216; border: 1px solid #26262e; padding: 24px; border-radius: 14px; width: 340px; display: flex; flex-direction: column; gap: 14px; }
+
+        /* HESAP AYARLARI EKRANI (Resimdeki Tasarım) */
+        #settings-screen {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #000; z-index: 10001; display: none; flex-direction: row;
+        }
+        .settings-sidebar {
+            width: 240px; background: #08080a; border-right: 1px solid #1a1a20; padding: 40px 20px;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .settings-sidebar h3 { color: #fff; font-size: 14px; margin-bottom: 12px; padding-left: 8px; }
+        .settings-nav-item { padding: 10px 12px; border-radius: 8px; color: #a1a1aa; font-size: 13px; cursor: pointer; transition: 0.2s; }
+        .settings-nav-item:hover, .settings-nav-item.active { background: #181820; color: #fff; }
+
+        .settings-content { flex: 1; padding: 40px 60px; overflow-y: auto; display: flex; flex-direction: column; gap: 32px; position: relative; }
+        .settings-close-btn { position: absolute; top: 24px; right: 32px; color: #71717a; font-size: 20px; cursor: pointer; }
+        .settings-close-btn:hover { color: #fff; }
+
+        .settings-section-title { font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 16px; }
+        .settings-panel { display: none; }
+        .settings-panel.active { display: block; }
+        .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #121216; }
+        .settings-label { font-size: 13px; color: #a1a1aa; }
+        .settings-val { font-size: 13px; color: #fff; font-weight: 600; display: flex; align-items: center; gap: 12px; }
+        .settings-edit-btn { background: #1f1f28; border: 1px solid #2e2e3a; color: #fff; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+
+        .danger-zone { margin-top: 20px; padding-top: 20px; border-top: 1px solid #1a1a20; }
+        .danger-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .danger-title { font-size: 14px; font-weight: 700; color: #fff; }
+        .danger-desc { font-size: 11px; color: #71717a; margin-top: 2px; }
+        .btn-disable { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 12px; }
+        .btn-delete { background: #dc2626; border: none; color: white; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 700; }
+        @media (max-width: 720px) {
+            #settings-screen { height: 100dvh; flex-direction: column; overflow: hidden; }
+            .settings-sidebar { width: 100%; flex: 0 0 auto; flex-direction: row; align-items: center; gap: 4px; padding: 8px; overflow-x: auto; border-right: 0; border-bottom: 1px solid #1a1a20; }
+            .settings-sidebar h3 { display: none; }
+            .settings-nav-item { flex: 0 0 auto; padding: 9px 10px; font-size: 12px; }
+            .settings-content { min-width: 0; padding: 24px 16px; gap: 20px; }
+            .settings-close-btn { position: fixed; z-index: 1; top: 12px; right: 14px; padding: 5px; background: #101014; }
+            .settings-row { align-items: flex-start; gap: 12px; }
+            .settings-val { max-width: 65%; flex-wrap: wrap; overflow-wrap: anywhere; }
+            .danger-row { align-items: flex-start; flex-direction: column; gap: 10px; }
+        }
+
+        /* App layout polish: keep the wide workspace calm and the mobile feed focused. */
+        body { background: #09090c; color: #f4f4f5; }
+        .top-right-watermark { display: none; }
+        #app-screen { background: #09090c; }
+        .far-left-bar {
+            width: 64px; flex: 0 0 64px; padding: 20px 0; gap: 12px;
+            background: #0b0b0f; border-color: #1b1b23;
+        }
+        .brand-logo { width: 40px; height: 40px; border-radius: 13px; }
+        .left-icon { width: 42px; height: 42px; border-radius: 13px; }
+        .left-sidebar {
+            width: 248px; flex: 0 0 248px; background: #101014;
+            border-color: #1b1b23;
+        }
+        .search-box { padding: 16px 14px; border-color: #1b1b23; }
+        .search-input { min-height: 38px; background: #17171d; border-color: #25252d; color: #f4f4f5; }
+        .add-friend-btn-small { width: 38px; border-radius: 10px; }
+        .user-section { padding: 18px 10px; gap: 14px; }
+        .section-header { padding: 0 10px; color: #81818d; letter-spacing: .08em; }
+        .user-item { min-height: 48px; padding: 8px 10px; border: 1px solid transparent; }
+        .user-item:hover { background: #19191f; border-color: #24242d; }
+        .user-profile-footer { min-height: 68px; padding: 12px 14px; background: #0c0c10; border-color: #1b1b23; }
+        .main-feed-area { min-width: 0; background: #09090c; }
+        .story-bar {
+            min-height: 112px; padding: 18px clamp(20px, 4vw, 54px);
+            gap: 20px; align-items: center; background: #0e0e12; border-color: #1b1b23;
+            scrollbar-width: thin;
+        }
+        .story-circle-item { min-width: 64px; gap: 8px; }
+        .story-ring { width: 62px; height: 62px; }
+        .story-ring.add-story { background: #17171d; border-color: #ef4444; }
+        .story-label { max-width: 76px; overflow: hidden; color: #b2b2bd; text-overflow: ellipsis; white-space: nowrap; }
+        .feed-intro {
+            display: flex; align-items: center; justify-content: space-between; gap: 18px;
+            width: min(100% - 48px, 850px); margin: 28px auto 0; padding: 22px 24px;
+            border: 1px solid #26232a; border-radius: 18px;
+            background: radial-gradient(ellipse at 90% 0%, rgba(153, 27, 27, .22), transparent 45%), #111115;
+            box-shadow: 0 14px 36px rgba(0, 0, 0, .16);
+        }
+        .feed-kicker { color: #f87171; font-size: 10px; font-weight: 800; letter-spacing: .16em; }
+        .feed-intro h1 { margin-top: 7px; color: #fafafa; font-size: clamp(23px, 2.2vw, 30px); letter-spacing: -.04em; }
+        .feed-intro p { margin-top: 6px; color: #9696a2; font-size: 13px; line-height: 1.5; }
+        .feed-discover { flex: 0 0 auto; padding: 11px 14px; border: 1px solid #34303a; border-radius: 11px; background: #1a171d; color: #e4e4e7; font-weight: 650; cursor: pointer; }
+        .feed-discover:hover { border-color: #7f3038; background: #21181d; }
+        .create-post-card {
+            width: min(100% - 48px, 850px); min-height: 66px; margin: 16px auto 0;
+            padding: 12px 14px; border-color: #24242c; border-radius: 15px; background: #111115;
+            box-shadow: 0 10px 28px rgba(0, 0, 0, .14);
+        }
+        .post-input { min-height: 40px; padding: 0 8px; font-size: 14px; }
+        .send-post-btn { width: 40px; height: 40px; border-radius: 12px; font-size: 16px; }
+        .feed-stream { width: min(100% - 48px, 850px); margin: 0 auto; padding: 18px 0 36px; gap: 14px; }
+        .post-card { padding: 19px; border-color: #25252d; border-radius: 16px; background: #111115; }
+        .post-author { font-size: 14px; }
+        .post-time { font-size: 11px; }
+        .post-content { font-size: 14px; line-height: 1.65; }
+        .feed-empty-state {
+            display: grid; justify-items: center; gap: 10px; margin-top: 2px; padding: 34px 24px;
+            border: 1px dashed #34313a; border-radius: 18px; background: linear-gradient(145deg, #101014, #0d0d11);
+            text-align: center;
+        }
+        .feed-empty-icon { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid rgba(239,68,68,.24); border-radius: 15px; background: rgba(127,29,29,.2); font-size: 21px; }
+        .feed-empty-state h2 { color: #f4f4f5; font-size: 17px; }
+        .feed-empty-state p { max-width: 420px; color: #92929e; font-size: 13px; line-height: 1.6; }
+        .right-menu-panel {
+            width: 224px; flex: 0 0 224px; padding: 22px 14px;
+            background: #0e0e12; border-color: #1b1b23;
+        }
+        .menu-btn { min-height: 48px; border-color: #22222a; border-radius: 12px; }
+        .menu-btn.active { background: linear-gradient(100deg, rgba(153,27,27,.24), rgba(24,20,25,.75)); border-color: rgba(239,68,68,.36); }
+        .tab-content[style*="padding:20px"] { padding: 24px !important; }
+        #tab-Gruplar > h2, #tab-Arama > h2, #tab-Bildirim > h2 { margin: 4px 0 12px; color: #fafafa; letter-spacing: -.025em; }
+
+        @media (min-width: 721px) and (max-width: 1100px) {
+            .left-sidebar { width: 215px; flex-basis: 215px; }
+            .right-menu-panel { width: 190px; flex-basis: 190px; padding-inline: 10px; }
+            .menu-btn { padding-inline: 10px; font-size: 12px; }
+            .feed-intro, .create-post-card { width: min(100% - 36px, 780px); }
+            .feed-stream { width: min(100% - 36px, 780px); }
+        }
+        @media (max-width: 720px) {
+            .main-feed-area { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+            .story-bar { min-height: 98px; padding: 12px 16px; gap: 14px; }
+            .story-ring { width: 56px; height: 56px; }
+            .story-circle-item { min-width: 58px; }
+            .feed-intro {
+                width: calc(100% - 28px); margin: 14px auto 0; padding: 17px;
+                align-items: flex-start; border-radius: 15px;
+            }
+            .feed-intro h1 { font-size: 23px; }
+            .feed-intro p { max-width: 260px; font-size: 12px; }
+            .feed-discover { padding: 9px 10px; font-size: 11px; }
+            .create-post-card { width: calc(100% - 28px); min-height: 58px; margin: 12px auto 0; padding: 9px 10px; }
+            .post-input { font-size: 13px; }
+            .send-post-btn { width: 38px; height: 38px; }
+            .feed-stream { width: calc(100% - 28px); padding: 12px 0 22px; gap: 12px; }
+            .feed-empty-state { padding: 26px 18px; }
+            .tab-content[style*="padding:20px"] { padding: 16px !important; }
+            #tab-Gruplar > h2 { font-size: 20px; }
+            .post-card { padding: 15px; border-radius: 14px; }
+            .right-menu-panel { display: none; }
+            .mobile-bottom-nav {
+                min-height: 68px; padding-top: 8px;
+                padding-bottom: calc(8px + env(safe-area-inset-bottom));
+                background: rgba(14,14,18,.96); border-color: #25252d;
+            }
+            .mobile-nav-button { font-weight: 600; }
+            .mobile-nav-button.active { background: rgba(239,68,68,.12); color: #ffb3b3; }
+        }
+        @media (max-width: 380px) {
+            .feed-intro { padding: 14px; }
+            .feed-intro p { max-width: 190px; }
+            .feed-discover { max-width: 90px; white-space: normal; }
+        }
+        .far-left-bar {
+            position: relative; align-items: center; padding: 18px 0;
+            background: linear-gradient(180deg, #0e0e13, #0a0a0e); border-right-color: #20202a;
+        }
+        .brand-logo {
+            width: 42px; height: 42px; border: 1px solid rgba(255,255,255,.12);
+            border-radius: 14px; background: linear-gradient(145deg, #fb4b55, #bd202b);
+            box-shadow: 0 8px 22px rgba(220,38,38,.2); transition: transform .18s, box-shadow .18s;
+        }
+        .brand-logo:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(220,38,38,.32); }
+        .left-icon {
+            position: relative; width: 44px; height: 44px; border: 1px solid transparent;
+            border-radius: 14px; background: transparent; color: #8c8c99; font-size: 18px;
+            filter: saturate(.68); transition: color .18s, background .18s, border-color .18s, transform .18s, filter .18s;
+        }
+        .left-icon:hover { transform: translateY(-1px); border-color: #2b2931; background: #19191f; color: #fff; filter: saturate(1); }
+        .left-icon.active {
+            border-color: rgba(239,68,68,.22); background: linear-gradient(145deg, rgba(127,29,29,.35), rgba(54,20,25,.28));
+            color: #fff; filter: saturate(1); box-shadow: inset 0 0 0 1px rgba(255,255,255,.025);
+        }
+        .left-icon.active::before {
+            position: absolute; left: -11px; width: 3px; height: 20px; border-radius: 0 4px 4px 0;
+            background: #f0525b; box-shadow: 0 0 12px rgba(240,82,91,.48); content: "";
+        }
+        .search-box { position: relative; align-items: center; gap: 9px;         }
+        .search-icon { position: absolute; left: 26px; top: 50%; z-index: 1; color: #777783; font-size: 15px; line-height: 1; transform: translateY(-50%); pointer-events: none; }
+        .search-input {
+            min-width: 0; min-height: 42px; padding: 10px 12px 10px 36px;
+            border-radius: 12px; background: #15151b; border-color: #292933; color: #f4f4f5;
+            font-size: 12px; transition: border-color .18s, box-shadow .18s, background .18s;
+        }
+        .search-input::placeholder { color: #777783; }
+        .search-input:focus { border-color: rgba(239,68,68,.55); background: #18171d; box-shadow: 0 0 0 3px rgba(239,68,68,.1); }
+        .add-friend-btn-small {
+            width: 42px; height: 42px; flex: 0 0 42px; border: 1px solid rgba(255,255,255,.12);
+            border-radius: 13px; background: linear-gradient(145deg, #f0444e, #c92732);
+            box-shadow: 0 6px 16px rgba(220,38,38,.16); font-size: 21px;
+            transition: transform .18s, filter .18s, box-shadow .18s;
+        }
+        .add-friend-btn-small:hover { transform: translateY(-1px); filter: brightness(1.08); box-shadow: 0 9px 20px rgba(220,38,38,.24); }
+        .add-friend-btn-small:active { transform: scale(.96); }
+        .user-profile-footer {
+            gap: 10px; min-height: 72px; padding: 12px 12px;
+            background: linear-gradient(180deg, #101014, #0c0c10); border-top-color: #23232c;
+        }
+        .profile-left { min-width: 0; gap: 10px; }
+        .profile-left .avatar-img {
+            border: 1px solid rgba(255,255,255,.12); background: linear-gradient(145deg, #bd3039, #701d25);
+            box-shadow: 0 4px 12px rgba(0,0,0,.22);
+        }
+        .profile-icons { flex: 0 0 auto; align-items: center; gap: 5px; color: #b1b1bc; font-size: 15px; }
+        .profile-icons button {
+            position: relative;
+            display: grid; width: 34px; height: 34px; place-items: center;
+            border: 1px solid transparent; border-radius: 11px; background: transparent;
+            color: inherit; font: inherit; cursor: pointer;
+            transition: color .18s, background .18s, border-color .18s, transform .18s;
+        }
+        .profile-icons button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+        .profile-icons button:hover { transform: translateY(-1px); border-color: #30303a; background: #1a1a21; color: #fff; }
+        .profile-icons button:active { transform: scale(.95); }
+        .profile-icons button.muted { border-color: rgba(239,68,68,.2); background: rgba(239,68,68,.1); color: #ff737b !important; }
+        .profile-icons button.muted::after {
+            position: absolute; width: 23px; height: 2px; border-radius: 2px;
+            background: currentColor; content: ""; transform: rotate(-48deg);
+            box-shadow: 0 0 0 2px #101014;
+        }
+        .profile-icons button[aria-pressed="true"] { border-color: rgba(239,68,68,.2); background: rgba(239,68,68,.1); color: #ff737b; }
+        button:focus-visible, .left-icon:focus-visible, .brand-logo:focus-visible {
+            outline: 2px solid #f87171; outline-offset: 3px;
+        }
+        @media (max-width: 1100px) and (min-width: 721px) {
+            .profile-icons { gap: 2px; }
+            .profile-icons button { width: 30px; height: 32px; }
+        }
+        @media (max-width: 720px) {
+            .far-left-bar, .left-sidebar { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="top-right-watermark">RealW1+49</div>
+
+    <!-- AUTH SCREEN -->
+    <div id="auth-screen">
+        <div class="auth-card">
+            <section class="auth-showcase" aria-label="RustCord tanıtımı">
+                <div class="auth-brand"><span class="auth-brand-mark">⚡</span><span>RUSTCORD RED</span></div>
+                <div class="auth-showcase-copy">
+                    <div class="auth-eyebrow">Birlikte daha yakın</div>
+                    <h1>Topluluğun burada başlıyor.</h1>
+                    <p>Arkadaşlarınla konuş, topluluklara katıl ve anlarını paylaş. Hepsi tek bir yerde.</p>
+                </div>
+                <div class="auth-feature-list">
+                    <div class="auth-feature"><span class="auth-feature-icon">✦</span><span>Arkadaşlarınla özel mesajlaş</span></div>
+                    <div class="auth-feature"><span class="auth-feature-icon">◉</span><span>Topluluklarda birlikte buluş</span></div>
+                    <div class="auth-feature"><span class="auth-feature-icon">↗</span><span>Hikâyelerini güvenle paylaş</span></div>
+                </div>
+            </section>
+            <section class="auth-form-panel">
+                <form class="auth-form" onsubmit="handleLogin(event)">
+                    <div class="auth-form-heading">
+                        <h2>Hoş geldin</h2>
+                        <p>Giriş yap veya yeni hesabını oluştur.</p>
+                    </div>
+                    <div class="auth-field">
+                        <label for="regNick">Kullanıcı adı</label>
+                        <input type="text" id="regNick" class="auth-input" placeholder="Kullanıcı adın" autocomplete="username" maxlength="32" required>
+                    </div>
+                    <div class="auth-field">
+                        <label for="regEmail">E-posta adresi</label>
+                        <input type="email" id="regEmail" class="auth-input" placeholder="ornek@gmail.com" autocomplete="email" required>
+                    </div>
+                    <div class="auth-field">
+                        <label for="regPass">Şifre</label>
+                        <input type="password" id="regPass" class="auth-input" placeholder="En az 8 karakter" autocomplete="current-password" minlength="8" required>
+                    </div>
+                    <p class="auth-note">E-posta biçimi kontrol edilir; adres sahipliği bu sürümde doğrulanmaz.</p>
+                    <div id="turnstile-container"></div>
+                    <div id="auth-status" class="status-message auth-status" role="status" aria-live="polite"></div>
+                    <button id="loginButton" class="auth-btn" type="submit" disabled>Giriş Yap / Kayıt Ol</button>
+                    <button class="auth-link" type="button" onclick="handleForgotPassword()">Şifremi Unuttum</button>
+                </form>
+            </section>
+        </div>
+    </div>
+
+    <!-- ARKADAŞ EKLEME MODALI -->
+    <div id="friend-modal" class="modal-overlay">
+        <div class="modal-card">
+            <h3 style="color:#fff;">👥 Arkadaş Ekle</h3>
+            <p style="font-size: 12px; color: #71717a;">Eklemek istediğin kişinin Nickname'ini yaz:</p>
+            <input type="text" id="targetFriendNick" class="auth-input" placeholder="Örn: Ahmet">
+            <div style="display: flex; gap: 8px;">
+                <button class="auth-btn" style="flex:1;" onclick="sendFriendRequest()">İstek Gönder</button>
+                <button class="auth-btn" style="flex:1; background: #27272a;" onclick="closeModal('friend-modal')">İptal</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="password-modal" class="modal-overlay">
+        <form class="modal-card" onsubmit="changePassword(event)">
+            <h3 style="color:#fff;">Şifre Değiştir</h3>
+            <input id="currentPassword" type="password" class="auth-input" placeholder="Mevcut şifre" autocomplete="current-password" required>
+            <input id="newPassword" type="password" class="auth-input" placeholder="Yeni şifre (en az 8 karakter)" autocomplete="new-password" minlength="8" required>
+            <input id="confirmPassword" type="password" class="auth-input" placeholder="Yeni şifreyi tekrar gir" autocomplete="new-password" minlength="8" required>
+            <div id="password-status" class="status-message" role="status"></div>
+            <div style="display:flex;gap:8px;">
+                <button class="auth-btn" style="flex:1;" type="submit">Şifreyi Güncelle</button>
+                <button class="auth-btn" style="flex:1;background:#27272a;" type="button" onclick="closeModal('password-modal')">İptal</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- HİKAYE EKLEME MODALI -->
+    <div id="story-modal" class="modal-overlay">
+        <div class="modal-card">
+            <h3 style="color:#fff;">🔴 Yeni Hikaye Paylaş</h3>
+            <p style="font-size: 12px; color: #71717a;">Hikayen için bir düşünce yaz:</p>
+            <input type="text" id="targetStoryText" class="auth-input" placeholder="Örn: Harika bir gün...">
+            <label for="storyPhoto" style="font-size:12px;color:#a1a1aa;">Hikayene fotoğraf ekle</label>
+            <input type="file" id="storyPhoto" class="auth-input" accept="image/*" onchange="previewStoryPhoto()">
+            <img id="storyPhotoPreview" class="story-photo-preview" alt="Hikaye fotoğrafı önizlemesi">
+            <div id="story-status" class="status-message" role="status"></div>
+            <div style="display: flex; gap: 8px;">
+                <button class="auth-btn" style="flex:1;" onclick="publishStory()">Hikayeyi Paylaş</button>
+                <button class="auth-btn" style="flex:1; background: #27272a;" onclick="closeModal('story-modal')">İptal</button>
+            </div>
+        </div>
+    </div>
+    <div id="story-view-modal" class="modal-overlay" onclick="if(event.target === this) closeModal('story-view-modal')">
+        <div class="modal-card">
+            <h3 id="storyViewAuthor" style="color:#fff;"></h3>
+            <p id="storyViewText" style="color:#d4d4d8;overflow-wrap:anywhere;"></p>
+            <img id="storyViewImage" class="story-photo-preview" alt="Hikaye görseli">
+            <button class="auth-btn" onclick="closeModal('story-view-modal')">Kapat</button>
+        </div>
+    </div>
+
+    <!-- HESAP AYARLARI EKRANI -->
+    <div id="settings-screen">
+        <div class="settings-sidebar">
+            <h3>Ayarlar</h3>
+            <div class="settings-nav-item active" onclick="switchSettingsSection('account')">👤 Hesap</div>
+            <div class="settings-nav-item" onclick="switchSettingsSection('security')">🔒 Şifre ve Güvenlik</div>
+            <div class="settings-nav-item" onclick="switchSettingsSection('status')">⚡ Hesap Durumu</div>
+        </div>
+        <div class="settings-content">
+            <div class="settings-close-btn" onclick="closeSettings()">✕</div>
+
+            <div id="settings-account" class="settings-panel active">
+                <div class="settings-section-title">Hesap Bilgileri</div>
+                <div class="settings-row">
+                    <span class="settings-label">Kullanıcı Adı</span>
+                    <div class="settings-val"><span id="set-nick">-</span> <button class="settings-edit-btn" onclick="editNickname()">Düzenle</button></div>
+                </div>
+                <div class="settings-row">
+                    <span class="settings-label">E-posta</span>
+                    <div class="settings-val"><span id="set-email">-</span> <button class="settings-edit-btn" onclick="toggleEmailVisibility(this)">Gizle</button></div>
+                </div>
+                <button class="auth-btn" type="button" style="margin-top:20px;" onclick="handleLogout()">🚪 Oturumu kapat</button>
+            </div>
+
+            <div id="settings-security" class="settings-panel">
+                <div class="settings-section-title">Şifre ve Güvenlik</div>
+                <div class="settings-row">
+                    <span class="settings-label">Şifre</span>
+                    <div class="settings-val">•••••••• <button class="settings-edit-btn" onclick="openModal('password-modal')">Düzenle</button></div>
+                </div>
+                <div class="settings-row">
+                    <span class="settings-label">Giriş Yapılan Cihazlar</span>
+                    <div class="settings-val">1 Cihaz (Bu cihaz)</div>
+                </div>
+            </div>
+
+            <div id="settings-status" class="settings-panel danger-zone">
+                <div class="danger-row">
+                    <div>
+                        <div class="danger-title">Hesabını devre dışı bırak</div>
+                        <div class="danger-desc">Hesabını geçici olarak kapat.</div>
+                    </div>
+                    <button class="btn-disable" onclick="deactivateAccount()">Hesabı Devre Dışı Bırak</button>
+                </div>
+                <div class="danger-row">
+                    <div>
+                        <div class="danger-title">Hesabını kapat</div>
+                        <div class="danger-desc">Hesabını kalıcı olarak kapat.</div>
+                    </div>
+                    <button class="btn-delete" onclick="deleteAccount()">Hesabı Sil</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MAIN APP SCREEN -->
+    <div id="app-screen">
+
+        <div class="far-left-bar">
+            <div class="brand-logo" aria-label="RustCord">⚡</div>
+            <button class="left-icon active" type="button" id="icon-Ev" aria-label="Ana sayfa" title="Ana sayfa" onclick="switchTab('Ev')">🏠</button>
+            <button class="left-icon" type="button" id="icon-Mesaj" aria-label="Mesajlar" title="Mesajlar" onclick="switchTab('Mesaj')">💬</button>
+            <button class="left-icon" type="button" id="icon-Bildirim" aria-label="Bildirimler" title="Bildirimler" onclick="switchTab('Bildirim')">🔔</button>
+        </div>
+
+        <div class="left-sidebar">
+            <div class="search-box">
+                <span class="search-icon" aria-hidden="true">⌕</span>
+                <input id="friendSearch" type="search" class="search-input" placeholder="Arkadaş ara..." oninput="filterFriends()">
+                <button class="add-friend-btn-small" type="button" onclick="openModal('friend-modal')" title="Arkadaş Ekle" aria-label="Arkadaş ekle">+</button>
+            </div>
+            <div class="user-section">
+                <div class="section-header">Arkadaşlarım</div>
+                <div id="friendsListContainer" style="display: flex; flex-direction: column; gap: 4px;"></div>
+                <div class="section-header" style="margin-top:8px;">Arkadaşlık İstekleri</div>
+                <div id="friendRequestsContainer" style="display: flex; flex-direction: column; gap: 4px;"></div>
+            </div>
+
+            <div class="user-profile-footer">
+                <div class="profile-left">
+                    <div class="avatar-wrap" style="width:28px; height:28px;">
+                        <div class="avatar-img" id="myAvatar">R</div>
+                    </div>
+                    <div>
+                        <div class="user-name" id="myName" style="font-size:12px">Kullanıcı</div>
+                        <div class="user-status" style="font-size:9px">Çevrimiçi</div>
+                    </div>
+                </div>
+                <div class="profile-icons">
+                    <button id="micBtn" type="button" onclick="toggleMic()" title="Mikrofonu sustur" aria-label="Mikrofonu sustur" aria-pressed="false">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3m-4 0h8"></path></svg>
+                    </button>
+                    <button id="deafenBtn" type="button" onclick="toggleDeafen()" title="Kulaklığı sustur" aria-label="Kulaklığı sustur" aria-pressed="false">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13v-1a8 8 0 0 1 16 0v1"></path><rect x="3" y="12" width="4" height="8" rx="2"></rect><rect x="17" y="12" width="4" height="8" rx="2"></rect></svg>
+                    </button>
+                    <button type="button" onclick="openSettings()" title="Ayarlar" aria-label="Ayarlar">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"></path><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"></path></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-feed-area">
+            <div id="pullRefreshIndicator" class="pull-refresh-indicator" aria-live="polite">Yenilemek için bırak</div>
+
+            <!-- Hikayeler Çubuğu (İlk başta sadece + Ekle var) -->
+            <div class="story-bar" id="storyBarContainer">
+                <div class="story-circle-item" onclick="openModal('story-modal')">
+                    <div class="story-ring add-story">+</div>
+                    <div class="story-label">Hikaye Ekle</div>
+                </div>
+            </div>
+
+            <div id="tab-Ev" class="tab-content active">
+                <section class="feed-intro">
+                    <div>
+                        <span class="feed-kicker">RUSTCORD • TOPLULUK</span>
+                        <h1>Akışın</h1>
+                        <p>Arkadaşlarının paylaşımlarını keşfet, sen de sohbete katıl.</p>
+                    </div>
+                    <button class="feed-discover" type="button" onclick="switchTab('Reels')">🎬 Videoları keşfet</button>
+                </section>
+                <div class="create-post-card">
+                    <input type="text" class="post-input" id="newPostText" placeholder="Ne düşünüyorsun?">
+                    <button class="send-post-btn" onclick="publishPost()">➤</button>
+                </div>
+                <div class="feed-stream" id="feedStream"></div>
+            </div>
+
+            <div id="tab-Mesaj" class="tab-content" style="padding:20px;">
+                <h3 id="chatTitle">💬 Sohbet / Özel Mesaj</h3>
+                <div id="mobileFriendsList" class="mobile-friends" aria-label="Arkadaşların"></div>
+                <div id="messagesBox" style="flex:1; margin-top:15px; display:flex; flex-direction:column; gap:10px; overflow-y:auto;">
+                    <div class="user-status">Özel mesajlaşmak için sol taraftan bir arkadaş seç.</div>
+                </div>
+                <form class="community-form" onsubmit="sendDirectMessage(event)">
+                    <input id="directMessageInput" class="auth-input" maxlength="2000" placeholder="Özel mesaj yaz..." disabled required>
+                    <button class="auth-btn" type="submit">Gönder</button>
+                </form>
+                <div id="direct-message-status" class="status-message" role="status"></div>
+                <h3 style="margin:16px 0 8px;">🌐 Topluluk Sohbeti</h3>
+                <div class="community-chat">
+                    <div id="communityMessages" class="community-messages" aria-live="polite"></div>
+                    <form class="community-form" onsubmit="sendCommunityMessage(event)">
+                        <input id="communityInput" class="auth-input" maxlength="500" placeholder="Herkese açık mesaj yaz..." required>
+                        <button class="auth-btn" type="submit">Gönder</button>
+                    </form>
+                    <div id="community-status" class="status-message" role="status"></div>
+                </div>
+            </div>
+
+            <div id="tab-Gruplar" class="tab-content" style="padding:20px;">
+                <h2>👥 Gruplar ve Topluluklar</h2>
+                <form id="createGroupForm" onsubmit="createGroup(event)" style="display:flex;gap:8px;margin:16px 0;">
+                    <input id="newGroupName" class="auth-input" maxlength="60" placeholder="Yeni topluluk adı" required>
+                    <button class="auth-btn" type="submit">Topluluk Oluştur</button>
+                </form>
+                <div id="groupsList" class="feed-stream" style="padding:0;"></div>
+                <div id="groups-status" class="status-message" role="status"></div>
+                <section id="groupDetail" style="display:none;flex:1;min-height:0;flex-direction:column;">
+                    <button class="auth-btn" type="button" style="align-self:flex-start;margin:12px 0;" onclick="returnToGroups()">← Gruplara dön</button>
+                    <h3 id="groupTitle"></h3>
+                    <div id="groupCategories"></div>
+                    <div id="groupAdminTools" class="group-admin-tools" style="display:none;">
+                        <form id="addGroupChannelForm" class="group-admin-tools" style="flex:1;margin:0;" onsubmit="addGroupChannel(event)">
+                            <input id="groupCategoryName" class="auth-input" maxlength="40" placeholder="Kategori (örn. OYUN)" required>
+                            <input id="groupChannelName" class="auth-input" maxlength="48" placeholder="Kanal adı" required>
+                            <select id="groupChannelKind" class="auth-input" aria-label="Kanal türü">
+                                <option value="text">Metin kanalı</option>
+                                <option value="voice">Ses kanalı</option>
+                            </select>
+                            <button class="auth-btn" type="submit">Kanal ekle</button>
+                        </form>
+                    </div>
+                    <form id="groupModeratorForm" class="group-admin-tools" style="display:none;margin:0;" onsubmit="assignGroupModerator(event)">
+                        <input id="groupModeratorNick" class="auth-input" maxlength="32" placeholder="Moderatör kullanıcı adı" required>
+                        <button class="auth-btn" type="submit">Moderatör ata</button>
+                    </form>
+                    <div id="group-settings-status" class="status-message" role="status"></div>
+                    <div class="group-call-controls" aria-label="Grup ses odası kontrolleri">
+                        <button id="voiceJoinButton" class="auth-btn" type="button" onclick="joinVoiceRoom()">🎙️ Ses odasına katıl</button>
+                        <button id="microphoneButton" class="auth-btn" type="button" onclick="toggleGroupMicrophone()" disabled>🔇 Mikrofonu sustur</button>
+                        <button id="cameraButton" class="auth-btn" type="button" onclick="toggleGroupCamera()" disabled>📷 Kamerayı aç</button>
+                        <button id="screenShareButton" class="auth-btn" type="button" onclick="toggleScreenShare()" disabled>🖥️ Ekranı paylaş</button>
+                        <button id="voiceLeaveButton" class="auth-btn" type="button" onclick="leaveVoiceRoom()" disabled>📴 Odadan ayrıl</button>
+                    </div>
+                    <div id="group-media-grid" class="group-media-grid" aria-label="Ses odası katılımcıları"></div>
+                    <div id="group-chat-messages" class="community-messages" aria-live="polite" style="min-height:180px;"></div>
+                    <form class="community-form" onsubmit="sendGroupMessage(event)">
+                        <input id="groupChatInput" class="auth-input" maxlength="500" placeholder="Gruba mesaj yaz..." required>
+                        <button class="auth-btn" type="submit">Gönder</button>
+                    </form>
+                    <div id="group-chat-status" class="status-message" role="status"></div>
+                </section>
+            </div>
+
+            <div id="tab-Arama" class="tab-content" style="padding:20px;">
+                <h2>🕒 Arama Geçmişi</h2>
+                <div id="searchHistory" class="feed-stream"></div>
+            </div>
+
+            <div id="tab-Reels" class="tab-content">
+                <div class="reels-container">
+                    <h2 style="color: #ef4444; font-size: 18px; margin-top: 10px;">🎬 Reels & Kısa Videolar</h2>
+                    <form class="reel-search" onsubmit="searchYouTube(event)">
+                        <input id="youtubeSearch" type="search" placeholder="YouTube'da video ara..." aria-label="YouTube'da video ara">
+                        <button class="auth-btn" type="submit">Ara</button>
+                    </form>
+                    <form class="reel-search" onsubmit="addReel(event)">
+                        <input id="youtubeVideoUrl" type="url" placeholder="YouTube video bağlantısını buraya ekle" aria-label="YouTube video bağlantısı">
+                        <button class="auth-btn" type="submit">Reels'e ekle</button>
+                    </form>
+                    <div id="reelsList" style="display:contents;"></div>
+                    <div id="reels-status" class="status-message" role="status"></div>
+                </div>
+            </div>
+
+            <div id="tab-Bildirim" class="tab-content" style="padding:20px;">
+                <h2>🔔 Bilgilendirme ve Haberler</h2>
+            </div>
+        </div>
+
+        <div class="right-menu-panel">
+            <div class="menu-btn active" id="btn-Ev" onclick="switchTab('Ev')">
+                <div style="display:flex; align-items:center; gap:12px;"><span class="menu-btn-icon">🏠</span> <span>Ev</span></div>
+                <span>›</span>
+            </div>
+            <div class="menu-btn" id="btn-Mesaj" onclick="switchTab('Mesaj')">
+                <div style="display:flex; align-items:center; gap:12px;"><span class="menu-btn-icon">✉️</span> <span>Mesaj</span></div>
+                <span>›</span>
+            </div>
+            <div class="menu-btn" id="btn-Gruplar" onclick="switchTab('Gruplar')">
+                <div style="display:flex; align-items:center; gap:12px;"><span class="menu-btn-icon">👥</span> <span>Gruplar</span></div>
+                <span>›</span>
+            </div>
+            <div class="menu-btn" id="btn-Arama" onclick="switchTab('Arama')">
+                <div style="display:flex; align-items:center; gap:12px;"><span class="menu-btn-icon">🕒</span> <span>Arama Geçmişi</span></div>
+                <span>›</span>
+            </div>
+            <div class="menu-btn" id="btn-Reels" onclick="switchTab('Reels')">
+                <div style="display:flex; align-items:center; gap:12px;"><span class="menu-btn-icon">🎬</span> <span>Reels - Video</span></div>
+                <span>›</span>
+            </div>
+            <div class="menu-btn" id="btn-Bildirim" onclick="switchTab('Bildirim')">
+                <div style="display:flex; align-items:center; gap:12px;"><span class="menu-btn-icon">🔔</span> <span>Bilgilendirme / Haber</span></div>
+                <span>›</span>
+            </div>
+            <div class="menu-btn" onclick="openModal('friend-modal')">
+                <div style="display:flex; align-items:center; gap:12px;"><span class="menu-btn-icon">➕</span> <span>Arkadaş Ekle</span></div>
+                <span>›</span>
+            </div>
+
+            <div class="menu-btn logout" onclick="handleLogout()">
+                <div style="display:flex; align-items:center; gap:12px;"><span class="menu-btn-icon">🚪</span> <span>Çıkış</span></div>
+                <span>›</span>
+            </div>
+        </div>
+        <nav class="mobile-bottom-nav" aria-label="Mobil gezinme">
+            <button class="mobile-nav-button active" data-tab="Ev" onclick="switchTab('Ev')"><span>🏠</span>Hikâyeler</button>
+            <button class="mobile-nav-button" data-tab="Mesaj" onclick="switchTab('Mesaj')"><span>💬</span>DM</button>
+            <button class="mobile-nav-button" data-tab="Gruplar" onclick="switchTab('Gruplar')"><span>👥</span>Odalar</button>
+            <button class="mobile-nav-button" onclick="openSettings()"><span>👤</span>Profil</button>
+        </nav>
+
+    </div>
+
+    <script>
+        let myNick = "";
+        let myEmail = "";
+        let isMicMuted = false;
+        let isDeafened = false;
+        let friends = [];
+        let posts = [];
+        let stories = [];
+
+        window.onload = function() {
+            const savedNick = localStorage.getItem('rustcord_nick');
+            const savedEmail = localStorage.getItem('rustcord_email');
+            if(savedNick) {
+                myNick = savedNick;
+                myEmail = savedEmail || "osman@gmail.com";
+                setupUserUI();
+            }
+
+            friends = JSON.parse(localStorage.getItem('rustcord_friends') || "[]");
+            posts = JSON.parse(localStorage.getItem('rustcord_posts') || "[]");
+            stories = JSON.parse(localStorage.getItem('rustcord_stories') || "[]");
+
+            renderFriends();
+            renderPosts();
+            renderStories();
+        };
+
+        function setupUserUI() {
+            document.getElementById('myName').innerText = myNick;
+            document.getElementById('myAvatar').innerText = myNick.charAt(0).toUpperCase();
+            document.getElementById('set-nick').innerText = myNick;
+            document.getElementById('set-email').innerText = myEmail;
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('app-screen').style.display = 'flex';
+        }
+
+        function handleLogin() {
+            const nick = document.getElementById('regNick').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            if(!nick) {
+                alert("Lütfen kullanıcı adınızı girin!");
+                return;
+            }
+            myNick = nick;
+            myEmail = email || `${nick.toLowerCase()}@gmail.com`;
+
+            localStorage.setItem('rustcord_nick', myNick);
+            localStorage.setItem('rustcord_email', myEmail);
+            setupUserUI();
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('rustcord_nick');
+            localStorage.removeItem('rustcord_email');
+            closeSettings();
+            document.getElementById('app-screen').style.display = 'none';
+            document.getElementById('auth-screen').style.display = 'flex';
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.right-menu-panel .menu-btn').forEach(btn => btn.classList.remove('active'));
+            const targetBtn = document.getElementById(`btn-${tabName}`);
+            if(targetBtn) targetBtn.classList.add('active');
+
+            document.querySelectorAll('.far-left-bar .left-icon').forEach(icon => icon.classList.remove('active'));
+            const targetIcon = document.getElementById(`icon-${tabName}`);
+            if(targetIcon) targetIcon.classList.add('active');
+
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            const targetTab = document.getElementById(`tab-${tabName}`);
+            if(targetTab) targetTab.classList.add('active');
+        }
+
+        function toggleMic() {
+            isMicMuted = !isMicMuted;
+            const btn = document.getElementById('micBtn');
+            btn.classList.toggle('muted', isMicMuted);
+            btn.setAttribute('aria-pressed', String(isMicMuted));
+            btn.setAttribute('aria-label', isMicMuted ? 'Mikrofonu aç' : 'Mikrofonu sustur');
+            btn.title = isMicMuted ? 'Mikrofonu aç' : 'Mikrofonu sustur';
+        }
+
+        function toggleDeafen() {
+            isDeafened = !isDeafened;
+            const deafBtn = document.getElementById('deafenBtn');
+            deafBtn.classList.toggle('muted', isDeafened);
+            deafBtn.setAttribute('aria-pressed', String(isDeafened));
+            deafBtn.setAttribute('aria-label', isDeafened ? 'Kulaklığı aç' : 'Kulaklığı sustur');
+            deafBtn.title = isDeafened ? 'Kulaklığı aç' : 'Kulaklığı sustur';
+            if(isDeafened && !isMicMuted) toggleMic();
+        }
+
+        function openModal(modalId) { document.getElementById(modalId).style.display = 'flex'; }
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            if(modalId === 'friend-modal') document.getElementById('targetFriendNick').value = '';
+            if(modalId === 'story-modal') document.getElementById('targetStoryText').value = '';
+        }
+
+        function openSettings() { document.getElementById('settings-screen').style.display = 'flex'; }
+        function closeSettings() { document.getElementById('settings-screen').style.display = 'none'; }
+
+        function sendFriendRequest() {
+            const target = document.getElementById('targetFriendNick').value.trim();
+            if(!target || target === myNick) {
+                alert("Geçerli bir kullanıcı adı girin!");
+                return;
+            }
+            alert(`'${target}' adlı kullanıcıya arkadaşlık isteği gönderildi!`);
+            closeModal('friend-modal');
+
+            setTimeout(() => {
+                if(!friends.includes(target)) {
+                    friends.push(target);
+                    localStorage.setItem('rustcord_friends', JSON.stringify(friends));
+                    renderFriends();
+                }
+            }, 300);
+        }
+
+        function renderFriends() {
+            const container = document.getElementById('friendsListContainer');
+            if(friends.length === 0) {
+                container.innerHTML = `<div style="font-size: 11px; color: #52525b; padding: 4px 8px;">Henüz arkadaşın yok. Üstteki + butonundan ekle!</div>`;
+                return;
+            }
+            container.innerHTML = '';
+            friends.forEach(f => {
+                const div = document.createElement('div');
+                div.className = 'user-item';
+                div.innerHTML = `
+                    <div class="avatar-wrap">
+                        <div class="avatar-img">${f.charAt(0).toUpperCase()}</div>
+                        <div class="dot"></div>
+                    </div>
+                    <div>
+                        <div class="user-name">${f}</div>
+                        <div class="user-status">Çevrimiçi</div>
+                    </div>
+                `;
+                div.onclick = () => {
+                    selectDirectMessageFriend(f);
+                };
+                container.appendChild(div);
+            });
+        }
+
+        function publishStory() {
+            const storyText = document.getElementById('targetStoryText').value.trim();
+            if(!storyText) return;
+
+            const newStory = { author: myNick, text: storyText };
+            stories.push(newStory);
+            localStorage.setItem('rustcord_stories', JSON.stringify(stories));
+
+            renderStories();
+            closeModal('story-modal');
+        }
+
+        function renderStories() {
+            const storyBar = document.getElementById('storyBarContainer');
+            storyBar.innerHTML = `
+                <div class="story-circle-item" onclick="openModal('story-modal')">
+                    <div class="story-ring add-story">+</div>
+                    <div class="story-label">Hikaye Ekle</div>
+                </div>
+            `;
+            stories.forEach(s => {
+                const item = document.createElement('div');
+                item.className = 'story-circle-item';
+                item.innerHTML = `
+                    <div class="story-ring"><div class="story-img-inner">${s.author.charAt(0).toUpperCase()}</div></div>
+                    <div class="story-label">${s.author}</div>
+                `;
+                item.onclick = () => alert(`${s.author} paylaştı: "${s.text}"`);
+                storyBar.appendChild(item);
+            });
+        }
+
+        function publishPost() {
+            const txt = document.getElementById('newPostText').value.trim();
+            if(!txt) return;
+
+            const newPost = { author: myNick, content: txt, time: 'Şimdi' };
+            posts.unshift(newPost);
+            localStorage.setItem('rustcord_posts', JSON.stringify(posts));
+
+            renderPosts();
+            document.getElementById('newPostText').value = '';
+        }
+
+        function renderPosts() {
+            const stream = document.getElementById('feedStream');
+            stream.innerHTML = '';
+            posts.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'post-card';
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div class="avatar-wrap"><div class="avatar-img">${p.author.charAt(0).toUpperCase()}</div></div>
+                            <div>
+                                <div class="post-author">${p.author} 👑</div>
+                                <div class="post-time">${p.time}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="post-content">${p.content}</div>
+                `;
+                stream.appendChild(card);
+            });
+        }
+
+        const API_BASE = window.MORTEX_API_URL || (() => {
+            const localHosts = ['localhost', '127.0.0.1'];
+            if (localHosts.includes(window.location.hostname) && window.location.port !== '3000') {
+                return 'http://localhost:3000';
+            }
+            if (['http:', 'https:'].includes(window.location.protocol)) return window.location.origin;
+            return 'http://localhost:3000';
+        })();
+        let turnstileWidgetId = null;
+        let turnstileToken = '';
+        let sessionToken = localStorage.getItem('mortex_session') || '';
+        let communitySocket = null;
+        let groupSocket = null;
+        let activeGroupId = null;
+        let activeGroup = null;
+        let activeStoryIndex = -1;
+        let refreshTouchStart = null;
+        const groupPeerId = crypto.randomUUID();
+        let voiceActive = false;
+        let voiceJoining = false;
+        let voiceSocketReady = false;
+        let microphoneMuted = false;
+        let localMediaStream = null;
+        let cameraTrack = null;
+        let screenTrack = null;
+        const groupPeerConnections = new Map();
+        let reels = [];
+        let searchHistory = [];
+        let emailVisible = true;
+        let friendRequests = [];
+        let selectedDmNick = '';
+
+        function readStoredJson(key, fallback) {
+            try {
+                const value = JSON.parse(localStorage.getItem(key) || 'null');
+                return value ?? fallback;
+            } catch (error) {
+                console.error(`Geçersiz yerel veri (${key}):`, error);
+                return fallback;
+            }
+        }
+
+        function toggleGroupMicrophone() {
+            if (!voiceActive || !localMediaStream) return;
+            microphoneMuted = !microphoneMuted;
+            localMediaStream.getAudioTracks().forEach(track => { track.enabled = !microphoneMuted; });
+            updateVoiceControls();
+        }
+
+        async function apiRequest(path, options = {}) {
+            const headers = new Headers(options.headers || {});
+            if (sessionToken) headers.set('Authorization', `Bearer ${sessionToken}`);
+            if (options.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+            const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+            const responseText = await response.text();
+            let result = null;
+            if (responseText) {
+                try { result = JSON.parse(responseText); }
+                catch { result = responseText; }
+            }
+            if (!response.ok) {
+                const message = typeof result === 'string' ? result : result?.message || result?.error;
+                throw new Error(message || `İstek başarısız (${response.status}).`);
+            }
+            return result;
+        }
+
+        window.onload = function() {
+            myNick = '';
+            myEmail = '';
+            friends = [];
+            friendRequests = [];
+            selectedDmNick = '';
+            posts = readStoredJson('rustcord_posts', []);
+            stories = [];
+            reels = readStoredJson('rustcord_reels', []);
+            searchHistory = readStoredJson('rustcord_search_history', []);
+
+            renderFriends();
+            renderPosts();
+            renderStories();
+            renderReels();
+            renderSearchHistory();
+            setupMobileGestures();
+            initializeTurnstile();
+            if (sessionToken) restoreSession();
+            window.setInterval(() => {
+                if (sessionToken) loadStories();
+            }, 60 * 1000);
+            window.setInterval(() => {
+                if (sessionToken && selectedDmNick && document.getElementById('tab-Mesaj').classList.contains('active')) {
+                    loadDirectMessages();
+                }
+            }, 5 * 1000);
+        };
+
+        async function restoreSession() {
+            try {
+                const user = await apiRequest('/api/auth/me');
+                myNick = user.nick;
+                myEmail = user.email;
+                setupUserUI();
+            } catch (error) {
+                localStorage.removeItem('mortex_session');
+                sessionToken = '';
+                document.getElementById('auth-status').textContent = error.message;
+            }
+        }
+
+        async function initializeTurnstile() {
+            const status = document.getElementById('auth-status');
+            try {
+                const response = await fetch(`${API_BASE}/api/config/turnstile`);
+                if (!response.ok) throw new Error(`Turnstile yapılandırması alınamadı (${response.status}).`);
+                const config = await response.json();
+                if (!config.enabled || !config.site_key) {
+                    status.textContent = 'Giriş için sunucuda Turnstile anahtarları yapılandırılmalıdır.';
+                    return;
+                }
+
+                window.onTurnstileLoaded = function() {
+                    turnstileWidgetId = window.turnstile.render('#turnstile-container', {
+                        sitekey: config.site_key,
+                        callback: token => {
+                            turnstileToken = token;
+                            status.textContent = '';
+                        },
+                        'expired-callback': () => {
+                            turnstileToken = '';
+                            status.textContent = 'Robot doğrulamasının süresi doldu; tekrar doğrulayın.';
+                        },
+                        'error-callback': () => {
+                            turnstileToken = '';
+                            status.textContent = 'Robot doğrulaması yüklenemedi.';
+                        }
+                    });
+                    document.getElementById('loginButton').disabled = false;
+                };
+
+                if (!document.querySelector('script[data-turnstile]')) {
+                    const script = document.createElement('script');
+                    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoaded&render=explicit';
+                    script.async = true;
+                    script.defer = true;
+                    script.dataset.turnstile = 'true';
+                    script.onerror = () => { status.textContent = 'Cloudflare doğrulama aracı yüklenemedi.'; };
+                    document.head.appendChild(script);
+                }
+            } catch (error) {
+                status.textContent = `${error.message} Backend'in çalıştığını ve TURNSTILE_SITE_KEY / TURNSTILE_SECRET_KEY ayarlarını kontrol edin.`;
+            }
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+            const nick = document.getElementById('regNick').value.trim();
+            const email = document.getElementById('regEmail').value.trim();
+            const password = document.getElementById('regPass').value;
+            const status = document.getElementById('auth-status');
+            if (!nick || nick.length > 32) {
+                status.textContent = 'Kullanıcı adı 1-32 karakter olmalıdır.';
+                return;
+            }
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                status.textContent = 'Geçerli biçimde bir e-posta adresi girin.';
+                return;
+            }
+            if (password.length < 8) {
+                status.textContent = 'Şifre en az 8 karakter olmalıdır.';
+                return;
+            }
+            if (!turnstileToken) {
+                status.textContent = 'Devam etmek için Cloudflare robot doğrulamasını tamamlayın.';
+                return;
+            }
+            try {
+                const result = await apiRequest('/api/auth', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        nick,
+                        email,
+                        password,
+                        turnstile_token: turnstileToken
+                    })
+                });
+                sessionToken = result.session;
+                localStorage.setItem('mortex_session', sessionToken);
+                myNick = result.nick;
+                myEmail = result.email;
+                document.getElementById('regPass').value = '';
+                setupUserUI();
+                status.textContent = '';
+                if (window.turnstile && turnstileWidgetId !== null) window.turnstile.reset(turnstileWidgetId);
+                turnstileToken = '';
+            } catch (error) {
+                status.textContent = error.message || 'Giriş doğrulanamadı.';
+                if (window.turnstile && turnstileWidgetId !== null) window.turnstile.reset(turnstileWidgetId);
+                turnstileToken = '';
+            }
+        }
+
+        function setupUserUI() {
+            document.getElementById('myName').textContent = myNick;
+            document.getElementById('myAvatar').textContent = myNick.charAt(0).toUpperCase();
+            document.getElementById('set-nick').textContent = myNick;
+            document.getElementById('set-email').textContent = myEmail;
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('app-screen').style.display = 'flex';
+            connectCommunityChat();
+            loadGroups();
+            loadFriends();
+            loadStories();
+        }
+
+        async function handleLogout() {
+            try {
+                await apiRequest('/api/auth/logout', { method: 'POST' });
+            } catch (error) {
+                console.error('Sunucu oturumu kapatılamadı:', error);
+            }
+            localStorage.removeItem('mortex_session');
+            sessionToken = '';
+            myNick = '';
+            myEmail = '';
+            selectedDmNick = '';
+            document.getElementById('directMessageInput').disabled = true;
+            document.getElementById('messagesBox').replaceChildren();
+            document.getElementById('regPass').value = '';
+            if (communitySocket) communitySocket.close();
+            closeSettings();
+            document.getElementById('app-screen').style.display = 'none';
+            document.getElementById('auth-screen').style.display = 'flex';
+        }
+
+        function handleForgotPassword() {
+            alert('E-posta sahipliği doğrulama servisi henüz yapılandırılmadı. Güvenli parola sıfırlama şu anda kullanılamıyor.');
+        }
+
+        async function editNickname() {
+            const nextNick = prompt('Yeni kullanıcı adını girin:', myNick);
+            if (!nextNick || !nextNick.trim() || nextNick.trim().length > 32) return;
+            try {
+                await apiRequest('/api/auth/nickname', {
+                    method: 'POST',
+                    body: JSON.stringify({ nick: nextNick.trim() })
+                });
+                myNick = nextNick.trim();
+                setupUserUI();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        function toggleEmailVisibility(button) {
+            emailVisible = !emailVisible;
+            document.getElementById('set-email').textContent = emailVisible
+                ? myEmail
+                : myEmail.replace(/^(.).+(@.*)$/, '$1••••$2');
+            button.textContent = emailVisible ? 'Gizle' : 'Göster';
+        }
+
+        async function changePassword(event) {
+            event.preventDefault();
+            const currentPassword = document.getElementById('currentPassword').value;
+            const nextPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const status = document.getElementById('password-status');
+            if (nextPassword.length < 8) {
+                status.textContent = 'Yeni şifre en az 8 karakter olmalıdır.';
+                return;
+            }
+            if (nextPassword !== confirmPassword) {
+                status.textContent = 'Yeni şifreler eşleşmiyor.';
+                return;
+            }
+            try {
+                await apiRequest('/api/auth/password', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: nextPassword
+                    })
+                });
+                document.getElementById('currentPassword').value = '';
+                document.getElementById('newPassword').value = '';
+                document.getElementById('confirmPassword').value = '';
+                status.textContent = 'Şifren güncellendi.';
+                window.setTimeout(() => closeModal('password-modal'), 1200);
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        }
+
+        async function deactivateAccount() {
+            if (!confirm('Hesabını devre dışı bırakmak istiyor musun? Tekrar giriş yapılamaz.')) return;
+            try {
+                await apiRequest('/api/auth/deactivate', { method: 'POST' });
+                await handleLogout();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        async function deleteAccount() {
+            if (!confirm('Hesabını ve hikayelerini kalıcı olarak silmek istiyor musun?')) return;
+            try {
+                await apiRequest('/api/auth/account', { method: 'DELETE' });
+                await handleLogout();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.right-menu-panel .menu-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${tabName}`)?.classList.add('active');
+            document.querySelectorAll('.far-left-bar .left-icon').forEach(icon => icon.classList.remove('active'));
+            document.getElementById(`icon-${tabName}`)?.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(`tab-${tabName}`)?.classList.add('active');
+            document.querySelectorAll('.mobile-nav-button[data-tab]').forEach(button => {
+                button.classList.toggle('active', button.dataset.tab === tabName);
+            });
+            if (tabName === 'Mesaj') {
+                connectCommunityChat();
+                if (selectedDmNick) loadDirectMessages();
+            }
+            if (tabName === 'Gruplar') loadGroups();
+        }
+
+        function switchSettingsSection(section) {
+            document.querySelectorAll('.settings-nav-item').forEach(item => item.classList.remove('active'));
+            document.querySelectorAll('.settings-panel').forEach(panel => panel.classList.remove('active'));
+            document.querySelector(`.settings-nav-item[onclick="switchSettingsSection('${section}')"]`)?.classList.add('active');
+            document.getElementById(`settings-${section}`)?.classList.add('active');
+        }
+
+        function openSettings() {
+            switchSettingsSection('account');
+            document.getElementById('settings-screen').style.display = 'flex';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            if (modalId === 'friend-modal') document.getElementById('targetFriendNick').value = '';
+            if (modalId === 'story-modal') {
+                document.getElementById('targetStoryText').value = '';
+                document.getElementById('storyPhoto').value = '';
+                document.getElementById('storyPhotoPreview').style.display = 'none';
+                document.getElementById('storyPhotoPreview').removeAttribute('src');
+                document.getElementById('story-status').textContent = '';
+            }
+            if (modalId === 'password-modal') {
+                ['currentPassword', 'newPassword', 'confirmPassword'].forEach(id => {
+                    document.getElementById(id).value = '';
+                });
+                document.getElementById('password-status').textContent = '';
+            }
+        }
+
+        function filterFriends() {
+            const query = document.getElementById('friendSearch').value.trim().toLocaleLowerCase('tr');
+            document.querySelectorAll('#friendsListContainer .user-item').forEach(item => {
+                item.hidden = !item.dataset.nick.toLocaleLowerCase('tr').includes(query);
+            });
+        }
+
+        function renderFriends() {
+            const container = document.getElementById('friendsListContainer');
+            const requestContainer = document.getElementById('friendRequestsContainer');
+            container.replaceChildren();
+            if (!friends.length) {
+                const empty = document.createElement('div');
+                empty.className = 'user-status';
+                empty.textContent = 'Henüz arkadaşın yok. + butonundan ekle.';
+                container.appendChild(empty);
+            } else {
+                friends.forEach(friend => {
+                    const item = document.createElement('div');
+                    item.className = 'user-item';
+                    item.dataset.nick = friend;
+                    const avatar = document.createElement('div');
+                    avatar.className = 'avatar-img';
+                    avatar.textContent = friend.charAt(0).toUpperCase();
+                    const avatarWrap = document.createElement('div');
+                    avatarWrap.className = 'avatar-wrap';
+                    avatarWrap.append(avatar);
+                    const name = document.createElement('div');
+                    name.className = 'user-name';
+                    name.textContent = friend;
+                    const status = document.createElement('div');
+                    status.className = 'user-status';
+                    status.textContent = 'Arkadaş';
+                    const details = document.createElement('div');
+                    details.append(name, status);
+                    item.append(avatarWrap, details);
+                    item.onclick = () => selectDirectMessageFriend(friend);
+                    container.appendChild(item);
+                });
+            }
+            requestContainer.replaceChildren();
+            if (!friendRequests.length) {
+                const empty = document.createElement('div');
+                empty.className = 'user-status';
+                empty.textContent = 'Bekleyen istek yok.';
+                requestContainer.appendChild(empty);
+            }
+            friendRequests.forEach(request => {
+                const item = document.createElement('div');
+                item.className = 'user-item';
+                const name = document.createElement('span');
+                name.className = 'user-name';
+                name.textContent = request.nick;
+                const accept = document.createElement('button');
+                accept.type = 'button';
+                accept.className = 'settings-edit-btn';
+                accept.textContent = 'Kabul et';
+                accept.onclick = () => acceptFriendRequest(request.id);
+                item.append(name, accept);
+                requestContainer.appendChild(item);
+            });
+            filterFriends();
+        }
+
+        function renderMobileFriends() {
+            const container = document.getElementById('mobileFriendsList');
+            container.replaceChildren();
+            friends.forEach(friend => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'mobile-friend-button';
+                button.textContent = friend;
+                button.addEventListener('click', () => selectDirectMessageFriend(friend));
+                container.appendChild(button);
+            });
+            const addButton = document.createElement('button');
+            addButton.type = 'button';
+            addButton.className = 'mobile-friend-button';
+            addButton.textContent = '+ Arkadaş ekle';
+            addButton.addEventListener('click', () => openModal('friend-modal'));
+            container.appendChild(addButton);
+        }
+
+        async function loadFriends() {
+            try {
+                const result = await apiRequest('/api/friends');
+                friends = result.friends;
+                friendRequests = result.requests;
+                renderFriends();
+                renderMobileFriends();
+            } catch (error) {
+                document.getElementById('friendsListContainer').textContent = error.message;
+            }
+        }
+
+        async function sendFriendRequest() {
+            const target = document.getElementById('targetFriendNick').value.trim();
+            if (!target || target === myNick || target.length > 32) {
+                alert('Geçerli bir kullanıcı adı girin!');
+                return;
+            }
+            try {
+                await apiRequest('/api/friends/requests', {
+                    method: 'POST',
+                    body: JSON.stringify({ nick: target })
+                });
+                closeModal('friend-modal');
+                alert(`${target} adlı kullanıcıya arkadaşlık isteği gönderildi.`);
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        async function acceptFriendRequest(requestId) {
+            try {
+                await apiRequest(`/api/friends/requests/${encodeURIComponent(requestId)}/accept`, {
+                    method: 'POST'
+                });
+                await loadFriends();
+                await loadStories();
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        function previewStoryPhoto() {
+            const file = document.getElementById('storyPhoto').files[0];
+            const preview = document.getElementById('storyPhotoPreview');
+            const status = document.getElementById('story-status');
+            if (!file) return;
+            if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type)) {
+                status.textContent = 'PNG, JPEG, WebP veya GIF türünde resim seçin.';
+                document.getElementById('storyPhoto').value = '';
+                return;
+            }
+            if (file.size > 1024 * 1024) {
+                status.textContent = 'Resim boyutu en fazla 1 MB olabilir.';
+                document.getElementById('storyPhoto').value = '';
+                return;
+            }
+            status.textContent = '';
+            preview.src = URL.createObjectURL(file);
+            preview.style.display = 'block';
+        }
+
+        async function publishStory() {
+            const text = document.getElementById('targetStoryText').value.trim();
+            const file = document.getElementById('storyPhoto').files[0];
+            const status = document.getElementById('story-status');
+            if (!text && !file) {
+                status.textContent = 'Hikayene metin veya resim ekle.';
+                return;
+            }
+            const saveStory = async image => {
+                try {
+                    const story = await apiRequest('/api/stories', {
+                        method: 'POST',
+                        body: JSON.stringify({ text, image: image || null })
+                    });
+                    stories.unshift(story);
+                    renderStories();
+                    closeModal('story-modal');
+                } catch (error) {
+                    status.textContent = error.message;
+                }
+            };
+            if (!file) {
+                await saveStory('');
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => { void saveStory(String(reader.result)); };
+            reader.onerror = () => { status.textContent = 'Resim okunamadı. Lütfen tekrar deneyin.'; };
+            reader.readAsDataURL(file);
+        }
+
+        async function loadStories() {
+            try {
+                stories = await apiRequest('/api/stories');
+                renderStories();
+            } catch (error) {
+                document.getElementById('storyBarContainer').setAttribute('aria-label', error.message);
+            }
+        }
+
+        function renderStories() {
+            const storyBar = document.getElementById('storyBarContainer');
+            if (!storyBar) return;
+            const now = Date.now();
+            stories = stories.filter(story => Number(story.expires_at) * 1000 > now);
+            storyBar.replaceChildren();
+            const add = document.createElement('div');
+            add.className = 'story-circle-item';
+            add.onclick = () => openModal('story-modal');
+            const addRing = document.createElement('div');
+            addRing.className = 'story-ring add-story';
+            addRing.textContent = '+';
+            const addLabel = document.createElement('div');
+            addLabel.className = 'story-label';
+            addLabel.textContent = 'Hikaye Ekle';
+            add.append(addRing, addLabel);
+            storyBar.appendChild(add);
+
+            stories.forEach(story => {
+                const item = document.createElement('div');
+                item.className = 'story-circle-item';
+                const ring = document.createElement('div');
+                ring.className = 'story-ring';
+                const inner = document.createElement('div');
+                inner.className = 'story-img-inner';
+                inner.textContent = story.author.charAt(0).toUpperCase();
+                ring.appendChild(inner);
+                const label = document.createElement('div');
+                label.className = 'story-label';
+                label.textContent = story.author;
+                item.append(ring, label);
+                item.onclick = () => viewStory(story);
+                storyBar.appendChild(item);
+            });
+        }
+
+        function viewStory(story) {
+            activeStoryIndex = stories.findIndex(item => item.id === story.id);
+            showStory(story);
+        }
+
+        function showStory(story) {
+            document.getElementById('storyViewAuthor').textContent = story.author;
+            document.getElementById('storyViewText').textContent = story.text || '';
+            const image = document.getElementById('storyViewImage');
+            image.style.display = story.image ? 'block' : 'none';
+            if (story.image) image.src = story.image;
+            else image.removeAttribute('src');
+            openModal('story-view-modal');
+        }
+
+        function setupMobileGestures() {
+            const feed = document.querySelector('.main-feed-area');
+            const refreshHint = document.getElementById('pullRefreshIndicator');
+            feed.addEventListener('touchstart', event => {
+                if (feed.scrollTop === 0) refreshTouchStart = event.touches[0].clientY;
+            }, { passive: true });
+            feed.addEventListener('touchend', event => {
+                if (refreshTouchStart === null) return;
+                const distance = event.changedTouches[0].clientY - refreshTouchStart;
+                refreshTouchStart = null;
+                if (distance < 90 || feed.scrollTop !== 0) return;
+                refreshHint.classList.add('visible');
+                const activeTab = document.querySelector('.tab-content.active')?.id;
+                const refresh = activeTab === 'tab-Mesaj' && selectedDmNick
+                    ? loadDirectMessages()
+                    : activeTab === 'tab-Gruplar' ? loadGroups() : Promise.all([loadStories(), loadFriends()]);
+                refresh.finally(() => window.setTimeout(() => refreshHint.classList.remove('visible'), 400));
+            }, { passive: true });
+
+            const storyModal = document.getElementById('story-view-modal');
+            let storyTouchStart = null;
+            storyModal.addEventListener('touchstart', event => {
+                storyTouchStart = event.touches[0].clientY;
+            }, { passive: true });
+            storyModal.addEventListener('touchend', event => {
+                if (storyTouchStart === null) return;
+                const delta = event.changedTouches[0].clientY - storyTouchStart;
+                storyTouchStart = null;
+                if (Math.abs(delta) < 55 || stories.length === 0) return;
+                activeStoryIndex = (activeStoryIndex + (delta < 0 ? 1 : -1) + stories.length) % stories.length;
+                showStory(stories[activeStoryIndex]);
+            }, { passive: true });
+        }
+
+        function publishPost() {
+            const input = document.getElementById('newPostText');
+            const text = input.value.trim();
+            if (!text) return;
+            posts.unshift({ author: myNick, content: text, time: 'Şimdi' });
+            localStorage.setItem('rustcord_posts', JSON.stringify(posts));
+            renderPosts();
+            input.value = '';
+        }
+
+        function renderPosts() {
+            const stream = document.getElementById('feedStream');
+            stream.replaceChildren();
+            if (!posts.length) {
+                const empty = document.createElement('section');
+                empty.className = 'feed-empty-state';
+                const icon = document.createElement('div');
+                icon.className = 'feed-empty-icon';
+                icon.textContent = '✦';
+                const title = document.createElement('h2');
+                title.textContent = 'Akışın burada başlıyor';
+                const description = document.createElement('p');
+                description.textContent = 'İlk paylaşımını yap; arkadaşların düşüncelerini ve güzel anlarını burada görebilsin.';
+                const action = document.createElement('button');
+                action.type = 'button';
+                action.className = 'auth-btn';
+                action.textContent = 'İlk gönderini yaz';
+                action.addEventListener('click', () => {
+                    const input = document.getElementById('newPostText');
+                    input.focus();
+                    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+                empty.append(icon, title, description, action);
+                stream.appendChild(empty);
+                return;
+            }
+            posts.forEach(post => {
+                const card = document.createElement('div');
+                card.className = 'post-card';
+                const author = document.createElement('div');
+                author.className = 'post-author';
+                author.textContent = `${post.author} 👑`;
+                const time = document.createElement('div');
+                time.className = 'post-time';
+                time.textContent = post.time || 'Daha önce';
+                const content = document.createElement('div');
+                content.className = 'post-content';
+                content.textContent = post.content;
+                card.append(author, time, content);
+                stream.appendChild(card);
+            });
+        }
+
+        function socketUrl() {
+            const url = new URL(API_BASE);
+            url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+            url.pathname = '/ws/chat';
+            return url.toString();
+        }
+
+        function connectCommunityChat() {
+            if (!myNick || communitySocket && [WebSocket.OPEN, WebSocket.CONNECTING].includes(communitySocket.readyState)) return;
+            const status = document.getElementById('community-status');
+            try {
+                communitySocket = new WebSocket(socketUrl());
+                communitySocket.onopen = () => { status.textContent = 'Topluluk sohbetine bağlandın.'; };
+                communitySocket.onmessage = event => {
+                    let message;
+                    try { message = JSON.parse(event.data); }
+                    catch { message = { author: 'Kullanıcı', text: event.data }; }
+                    appendCommunityMessage(message.author || 'Kullanıcı', message.text || '');
+                };
+                communitySocket.onerror = () => { status.textContent = 'Sohbet bağlantısı kurulamadı.'; };
+                communitySocket.onclose = () => { status.textContent = 'Sohbet bağlantısı kapandı.'; };
+            } catch (error) {
+                status.textContent = `Sohbet başlatılamadı: ${error.message}`;
+            }
+        }
+
+        function appendCommunityMessage(author, text) {
+            const container = document.getElementById('communityMessages');
+            const line = document.createElement('div');
+            line.className = 'community-message';
+            const name = document.createElement('strong');
+            name.textContent = `${author}: `;
+            line.append(name, document.createTextNode(text));
+            container.appendChild(line);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function sendCommunityMessage(event) {
+            event.preventDefault();
+            const input = document.getElementById('communityInput');
+            const text = input.value.trim();
+            if (!text) return;
+            if (!communitySocket || communitySocket.readyState !== WebSocket.OPEN) {
+                document.getElementById('community-status').textContent = 'Sohbet sunucusuna bağlı değilsin.';
+                connectCommunityChat();
+                return;
+            }
+            communitySocket.send(JSON.stringify({ author: myNick, text, createdAt: Date.now() }));
+            input.value = '';
+        }
+
+        function selectDirectMessageFriend(nick) {
+            selectedDmNick = nick;
+            document.getElementById('chatTitle').textContent = `💬 Özel Mesaj: ${nick}`;
+            document.getElementById('directMessageInput').disabled = false;
+            switchTab('Mesaj');
+        }
+
+        async function loadDirectMessages() {
+            const box = document.getElementById('messagesBox');
+            const status = document.getElementById('direct-message-status');
+            if (!selectedDmNick) return;
+            const nick = selectedDmNick;
+            try {
+                const messages = await apiRequest(`/api/dm?nick=${encodeURIComponent(nick)}`);
+                if (selectedDmNick !== nick) return;
+                box.replaceChildren();
+                messages.forEach(message => {
+                    const bubble = document.createElement('div');
+                    bubble.className = 'community-message';
+                    if (message.from_nick === myNick) bubble.style.alignSelf = 'flex-end';
+                    const author = document.createElement('strong');
+                    author.textContent = `${message.from_nick}: `;
+                    bubble.append(author, document.createTextNode(message.text));
+                    let touchStartX = null;
+                    bubble.addEventListener('touchstart', event => {
+                        touchStartX = event.touches[0].clientX;
+                    }, { passive: true });
+                    bubble.addEventListener('touchend', event => {
+                        if (touchStartX === null) return;
+                        const swipe = event.changedTouches[0].clientX - touchStartX;
+                        touchStartX = null;
+                        if (swipe > 65 && message.from_nick !== myNick) {
+                            const input = document.getElementById('directMessageInput');
+                            input.value = `@${message.from_nick} ${input.value}`.trimEnd();
+                            input.focus();
+                        }
+                    }, { passive: true });
+                    box.appendChild(bubble);
+                });
+                if (!messages.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'user-status';
+                    empty.textContent = `${nick} ile henüz mesajınız yok.`;
+                    box.appendChild(empty);
+                }
+                box.scrollTop = box.scrollHeight;
+                status.textContent = '';
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        }
+
+        async function sendDirectMessage(event) {
+            event.preventDefault();
+            const input = document.getElementById('directMessageInput');
+            const text = input.value.trim();
+            if (!selectedDmNick || !text) return;
+            try {
+                await apiRequest('/api/dm', {
+                    method: 'POST',
+                    body: JSON.stringify({ to_nick: selectedDmNick, text })
+                });
+                input.value = '';
+                await loadDirectMessages();
+            } catch (error) {
+                document.getElementById('direct-message-status').textContent = error.message;
+            }
+        }
+
+        async function loadGroups() {
+            const status = document.getElementById('groups-status');
+            try {
+                const groups = await apiRequest('/api/groups');
+                const list = document.getElementById('groupsList');
+                list.replaceChildren();
+                groups.forEach(group => {
+                    const card = document.createElement('div');
+                    card.className = 'post-card';
+                    const name = document.createElement('strong');
+                    name.textContent = group.name;
+                    const count = document.createElement('span');
+                    count.className = 'post-time';
+                    count.textContent = `${group.members_count} üye · Kurucu: ${group.owner} · ${group.role === 'founder' ? 'Kurucu' : group.role === 'moderator' ? 'Moderatör' : 'Üye'}`;
+                    const enter = document.createElement('button');
+                    enter.className = 'auth-btn';
+                    enter.type = 'button';
+                    enter.textContent = 'Gruba gir';
+                    enter.addEventListener('click', () => openGroup(group));
+                    card.append(name, count, enter);
+                    list.appendChild(card);
+                });
+                status.textContent = '';
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        }
+
+        async function addGroupChannel(event) {
+            event.preventDefault();
+            if (!activeGroup) return;
+            const status = document.getElementById('group-settings-status');
+            try {
+                activeGroup = await apiRequest(`/api/groups/${activeGroup.id}/channels`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        category: document.getElementById('groupCategoryName').value.trim(),
+                        name: document.getElementById('groupChannelName').value.trim(),
+                        kind: document.getElementById('groupChannelKind').value
+                    })
+                });
+                renderGroupCategories(activeGroup);
+                document.getElementById('addGroupChannelForm').reset();
+                status.textContent = 'Kanal eklendi.';
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        }
+
+        async function assignGroupModerator(event) {
+            event.preventDefault();
+            if (!activeGroup) return;
+            const status = document.getElementById('group-settings-status');
+            try {
+                activeGroup = await apiRequest(`/api/groups/${activeGroup.id}/moderators`, {
+                    method: 'POST',
+                    body: JSON.stringify({ nick: document.getElementById('groupModeratorNick').value.trim() })
+                });
+                document.getElementById('groupModeratorNick').value = '';
+                status.textContent = 'Moderatör atandı.';
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        }
+
+        function renderGroupCategories(group) {
+            const container = document.getElementById('groupCategories');
+            container.replaceChildren();
+            group.categories.forEach(category => {
+                const section = document.createElement('section');
+                section.className = 'group-category';
+                const title = document.createElement('div');
+                title.className = 'group-category-title';
+                title.textContent = category.name;
+                section.appendChild(title);
+                category.channels.forEach(channel => {
+                    const item = document.createElement('span');
+                    item.className = 'group-channel';
+                    item.textContent = `${channel.kind === 'voice' ? '🔊' : '#'} ${channel.name}`;
+                    section.appendChild(item);
+                });
+                container.appendChild(section);
+            });
+            const canManageChannels = group.role === 'founder' || group.role === 'moderator';
+            document.getElementById('groupAdminTools').style.display = canManageChannels ? 'flex' : 'none';
+            document.getElementById('groupModeratorForm').style.display = group.role === 'founder' ? 'flex' : 'none';
+        }
+
+        function openGroup(group) {
+            const groupId = group.id;
+            activeGroup = group;
+            activeGroupId = groupId;
+            document.getElementById('createGroupForm').style.display = 'none';
+            document.getElementById('groupsList').style.display = 'none';
+            document.getElementById('groups-status').textContent = '';
+            document.getElementById('groupDetail').style.display = 'flex';
+            document.getElementById('groupTitle').textContent = `${group.name} · ${group.members_count} üye · ${group.owner} (Kurucu)`;
+            document.getElementById('group-settings-status').textContent = '';
+            renderGroupCategories(group);
+            document.getElementById('group-chat-messages').replaceChildren();
+            document.getElementById('group-chat-status').textContent = 'Grup sohbetine bağlanılıyor...';
+            voiceSocketReady = false;
+            updateVoiceControls();
+
+            if (groupSocket) groupSocket.close();
+            const wsBase = new URL(API_BASE);
+            wsBase.protocol = wsBase.protocol === 'https:' ? 'wss:' : 'ws:';
+            const socket = new WebSocket(`${wsBase.origin}/ws/groups/${encodeURIComponent(groupId)}`);
+            groupSocket = socket;
+            socket.onopen = () => {
+                if (groupSocket !== socket) return;
+                voiceSocketReady = true;
+                updateVoiceControls();
+                if (activeGroupId === groupId) {
+                    document.getElementById('group-chat-status').textContent = 'Grup sohbetine bağlandın.';
+                }
+            };
+            socket.onmessage = event => {
+                if (activeGroupId !== groupId) return;
+                handleGroupSocketMessage(event.data, groupId).catch(error => {
+                    document.getElementById('group-chat-status').textContent = `Grup bağlantısı hatası: ${error.message}`;
+                });
+            };
+            socket.onerror = () => {
+                if (groupSocket === socket && activeGroupId === groupId) {
+                    document.getElementById('group-chat-status').textContent = 'Grup sohbetine bağlanılamadı.';
+                }
+            };
+            socket.onclose = () => {
+                if (groupSocket !== socket) return;
+                voiceSocketReady = false;
+                if (voiceActive) leaveVoiceRoom();
+                updateVoiceControls();
+                if (activeGroupId === groupId) {
+                    document.getElementById('group-chat-status').textContent = 'Grup sohbeti bağlantısı kapandı.';
+                }
+            };
+        }
+
+        function sendGroupSignal(message) {
+            if (groupSocket?.readyState === WebSocket.OPEN) {
+                groupSocket.send(JSON.stringify(message));
+                return true;
+            }
+            return false;
+        }
+
+        async function handleGroupSocketMessage(data, groupId) {
+            let message;
+            try { message = JSON.parse(data); }
+            catch { message = { author: 'Kullanıcı', text: data }; }
+
+            if (message.type === 'voice-join') {
+                if (voiceActive && message.peerId !== groupPeerId) {
+                    const peer = ensureGroupPeerConnection(message.peerId);
+                    peer.nick = message.nick || 'Katılımcı';
+                    sendGroupSignal({ type: 'voice-present', peerId: groupPeerId, nick: myNick || 'Kullanıcı' });
+                }
+                return;
+            }
+            if (message.type === 'voice-present') {
+                if (voiceActive && message.peerId !== groupPeerId) {
+                    const peer = ensureGroupPeerConnection(message.peerId);
+                    peer.nick = message.nick || 'Katılımcı';
+                }
+                return;
+            }
+            if (message.type === 'voice-leave') {
+                closeGroupPeer(message.peerId);
+                return;
+            }
+            if (message.type === 'rtc-description' && message.to === groupPeerId && voiceActive) {
+                const peerState = ensureGroupPeerConnection(message.peerId);
+                const peer = peerState.connection;
+                const offerCollision = message.description.type === 'offer'
+                    && (peerState.makingOffer || peer.signalingState !== 'stable');
+                peerState.ignoreOffer = !peerState.polite && offerCollision;
+                if (peerState.ignoreOffer) return;
+                await peer.setRemoteDescription(message.description);
+                if (message.description.type === 'offer') {
+                    await peer.setLocalDescription();
+                    sendGroupSignal({
+                        type: 'rtc-description',
+                        peerId: groupPeerId,
+                        to: message.peerId,
+                        description: peer.localDescription
+                    });
+                }
+                while (peerState.pendingCandidates.length) {
+                    await peer.addIceCandidate(peerState.pendingCandidates.shift());
+                }
+                return;
+            }
+            if (message.type === 'rtc-candidate' && message.to === groupPeerId && voiceActive) {
+                const peerState = ensureGroupPeerConnection(message.peerId);
+                if (peerState.ignoreOffer) return;
+                if (peerState.connection.remoteDescription) {
+                    await peerState.connection.addIceCandidate(message.candidate);
+                } else {
+                    peerState.pendingCandidates.push(message.candidate);
+                }
+                return;
+            }
+            if (message.type) return;
+            if (activeGroupId === groupId) appendGroupMessage(message.author || 'Kullanıcı', message.text || '');
+        }
+
+        function ensureGroupPeerConnection(peerId) {
+            let peer = groupPeerConnections.get(peerId);
+            if (peer) return peer;
+
+            const connection = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+            peer = {
+                connection,
+                polite: groupPeerId.localeCompare(peerId) > 0,
+                makingOffer: false,
+                ignoreOffer: false,
+                pendingCandidates: [],
+                videoSender: null,
+                nick: 'Katılımcı'
+            };
+            groupPeerConnections.set(peerId, peer);
+            if (localMediaStream) {
+                localMediaStream.getAudioTracks().forEach(track => connection.addTrack(track, localMediaStream));
+            }
+            const videoTrack = screenTrack || cameraTrack;
+            if (videoTrack) peer.videoSender = connection.addTrack(videoTrack, new MediaStream([videoTrack]));
+            connection.onicecandidate = event => {
+                if (event.candidate) {
+                    sendGroupSignal({
+                        type: 'rtc-candidate',
+                        peerId: groupPeerId,
+                        to: peerId,
+                        candidate: event.candidate
+                    });
+                }
+            };
+            connection.ontrack = event => showRemoteGroupMedia(peerId, event.streams[0], findGroupNick(peerId));
+            connection.onnegotiationneeded = async () => {
+                try {
+                    peer.makingOffer = true;
+                    await connection.setLocalDescription();
+                    sendGroupSignal({
+                        type: 'rtc-description',
+                        peerId: groupPeerId,
+                        to: peerId,
+                        description: connection.localDescription
+                    });
+                } catch (error) {
+                    document.getElementById('group-chat-status').textContent = `Bağlantı kurulamadı: ${error.message}`;
+                } finally {
+                    peer.makingOffer = false;
+                }
+            };
+            connection.onconnectionstatechange = () => {
+                if (['failed', 'closed'].includes(connection.connectionState)) closeGroupPeer(peerId);
+            };
+            return peer;
+        }
+
+        function findGroupNick(peerId) {
+            return groupPeerConnections.get(peerId)?.nick || 'Katılımcı';
+        }
+
+        function showRemoteGroupMedia(peerId, stream, nick) {
+            const grid = document.getElementById('group-media-grid');
+            let tile = document.getElementById(`group-peer-${peerId}`);
+            if (!tile) {
+                tile = document.createElement('div');
+                tile.id = `group-peer-${peerId}`;
+                tile.className = 'group-media-tile';
+                const video = document.createElement('video');
+                video.autoplay = true;
+                video.playsInline = true;
+                video.srcObject = stream;
+                const label = document.createElement('span');
+                label.textContent = nick;
+                tile.append(video, label);
+                grid.appendChild(tile);
+            } else {
+                tile.querySelector('video').srcObject = stream;
+            }
+        }
+
+        function closeGroupPeer(peerId) {
+            const peer = groupPeerConnections.get(peerId);
+            if (peer) peer.connection.close();
+            groupPeerConnections.delete(peerId);
+            document.getElementById(`group-peer-${peerId}`)?.remove();
+        }
+
+        function updateVoiceControls() {
+            document.getElementById('voiceJoinButton').disabled = voiceActive || voiceJoining || !voiceSocketReady;
+            document.getElementById('voiceJoinButton').classList.toggle('active', voiceActive);
+            document.getElementById('voiceJoinButton').textContent = voiceActive
+                ? '🎙️ Mikrofona katıldın'
+                : voiceJoining ? '🎙️ Mikrofon izni bekleniyor...' : '🎙️ Ses odasına katıl';
+            document.getElementById('microphoneButton').disabled = !voiceActive;
+            document.getElementById('microphoneButton').textContent = microphoneMuted ? '🎙️ Mikrofonu aç' : '🔇 Mikrofonu sustur';
+            document.getElementById('cameraButton').disabled = !voiceActive;
+            document.getElementById('screenShareButton').disabled = !voiceActive;
+            document.getElementById('voiceLeaveButton').disabled = !voiceActive;
+        }
+
+        async function joinVoiceRoom() {
+            if (voiceActive) return;
+            if (!voiceSocketReady) {
+                document.getElementById('group-chat-status').textContent = 'Ses odasına katılmadan önce grup bağlantısı kurulmalı.';
+                return;
+            }
+            voiceJoining = true;
+            updateVoiceControls();
+            document.getElementById('group-chat-status').textContent = 'Mikrofon izni bekleniyor...';
+            try {
+                localMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                voiceActive = true;
+                microphoneMuted = false;
+                sendGroupSignal({ type: 'voice-join', peerId: groupPeerId, nick: myNick || 'Kullanıcı' });
+                updateVoiceControls();
+                document.getElementById('group-chat-status').textContent = 'Ses odasına katıldın. Mikrofon izni tarayıcıdan istendi.';
+            } catch (error) {
+                document.getElementById('group-chat-status').textContent = `Mikrofon açılamadı: ${error.message}`;
+            } finally {
+                voiceJoining = false;
+                updateVoiceControls();
+            }
+        }
+
+        async function toggleGroupCamera() {
+            if (!voiceActive) return;
+            if (cameraTrack) {
+                cameraTrack.stop();
+                cameraTrack = null;
+                if (!screenTrack) await replaceGroupVideoTrack(null);
+                document.getElementById('cameraButton').textContent = '📷 Kamerayı aç';
+                return;
+            }
+            try {
+                const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                cameraTrack = cameraStream.getVideoTracks()[0];
+                if (!screenTrack) await replaceGroupVideoTrack(cameraTrack);
+                document.getElementById('cameraButton').textContent = '📷 Kamerayı kapat';
+            } catch (error) {
+                document.getElementById('group-chat-status').textContent = `Kamera açılamadı: ${error.message}`;
+            }
+        }
+
+        async function replaceGroupVideoTrack(track) {
+            for (const peer of groupPeerConnections.values()) {
+                const { connection } = peer;
+                if (peer.videoSender) await peer.videoSender.replaceTrack(track);
+                else if (track) peer.videoSender = connection.addTrack(track, new MediaStream([track]));
+            }
+            updateLocalGroupTile();
+        }
+
+        function updateLocalGroupTile() {
+            const grid = document.getElementById('group-media-grid');
+            let tile = document.getElementById('local-group-tile');
+            if (!cameraTrack && !screenTrack) {
+                tile?.remove();
+                return;
+            }
+            if (!tile) {
+                tile = document.createElement('div');
+                tile.id = 'local-group-tile';
+                tile.className = 'group-media-tile';
+                const video = document.createElement('video');
+                video.id = 'local-group-video';
+                video.autoplay = true;
+                video.muted = true;
+                video.playsInline = true;
+                const label = document.createElement('span');
+                label.textContent = `${myNick || 'Sen'} (sen)`;
+                tile.append(video, label);
+                grid.prepend(tile);
+            }
+            const videoTrack = screenTrack || cameraTrack;
+            tile.querySelector('video').srcObject = videoTrack ? new MediaStream([videoTrack]) : null;
+        }
+
+        async function toggleScreenShare() {
+            if (!voiceActive) return;
+            if (screenTrack) {
+                screenTrack.stop();
+                return;
+            }
+            try {
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                screenTrack = screenStream.getVideoTracks()[0];
+                await replaceGroupVideoTrack(screenTrack);
+                document.getElementById('screenShareButton').textContent = '🖥️ Paylaşımı durdur';
+                screenTrack.onended = () => stopScreenShare();
+            } catch (error) {
+                document.getElementById('group-chat-status').textContent = `Ekran paylaşılamadı: ${error.message}`;
+            }
+        }
+
+        async function stopScreenShare() {
+            if (!screenTrack) return;
+            const endedTrack = screenTrack;
+            screenTrack = null;
+            endedTrack.onended = null;
+            if (cameraTrack) {
+                cameraTrack.enabled = true;
+                await replaceGroupVideoTrack(cameraTrack);
+            }
+            else await replaceGroupVideoTrack(null);
+            document.getElementById('screenShareButton').textContent = '🖥️ Ekranı paylaş';
+        }
+
+        function leaveVoiceRoom() {
+            if (!voiceActive) return;
+            sendGroupSignal({ type: 'voice-leave', peerId: groupPeerId });
+            voiceActive = false;
+            for (const peerId of groupPeerConnections.keys()) closeGroupPeer(peerId);
+            if (screenTrack) {
+                screenTrack.onended = null;
+                screenTrack.stop();
+                screenTrack = null;
+            }
+            if (cameraTrack) {
+                cameraTrack.stop();
+                cameraTrack = null;
+            }
+            localMediaStream?.getTracks().forEach(track => track.stop());
+            localMediaStream = null;
+            microphoneMuted = false;
+            voiceJoining = false;
+            document.getElementById('local-group-tile')?.remove();
+            document.getElementById('cameraButton').textContent = '📷 Kamerayı aç';
+            document.getElementById('screenShareButton').textContent = '🖥️ Ekranı paylaş';
+            updateVoiceControls();
+            document.getElementById('group-chat-status').textContent = 'Ses odasından ayrıldın.';
+        }
+
+        function returnToGroups() {
+            leaveVoiceRoom();
+            activeGroupId = null;
+            activeGroup = null;
+            if (groupSocket) {
+                groupSocket.close();
+                groupSocket = null;
+            }
+            voiceSocketReady = false;
+            updateVoiceControls();
+            document.getElementById('groupDetail').style.display = 'none';
+            document.getElementById('createGroupForm').style.display = 'flex';
+            document.getElementById('groupsList').style.display = '';
+        }
+
+        function appendGroupMessage(author, text) {
+            const line = document.createElement('div');
+            line.className = 'community-message';
+            const name = document.createElement('strong');
+            name.textContent = `${author}: `;
+            line.append(name, document.createTextNode(text));
+            const container = document.getElementById('group-chat-messages');
+            container.appendChild(line);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function sendGroupMessage(event) {
+            event.preventDefault();
+            const input = document.getElementById('groupChatInput');
+            const text = input.value.trim();
+            if (!text) return;
+            if (!groupSocket || groupSocket.readyState !== WebSocket.OPEN) {
+                document.getElementById('group-chat-status').textContent = 'Grup sohbeti bağlantısı hazır değil.';
+                return;
+            }
+            groupSocket.send(JSON.stringify({ author: myNick || 'Kullanıcı', text }));
+            input.value = '';
+        }
+
+        async function createGroup(event) {
+            event.preventDefault();
+            const input = document.getElementById('newGroupName');
+            const name = input.value.trim();
+            if (!name) return;
+            try {
+                await apiRequest('/api/groups', {
+                    method: 'POST',
+                    body: JSON.stringify({ name })
+                });
+                input.value = '';
+                await loadGroups();
+            } catch (error) {
+                document.getElementById('groups-status').textContent = error.message;
+            }
+        }
+
+        function searchYouTube(event) {
+            event.preventDefault();
+            const input = document.getElementById('youtubeSearch');
+            const query = input.value.trim();
+            if (!query) return;
+            searchHistory.unshift({ query, createdAt: Date.now() });
+            searchHistory = searchHistory.slice(0, 30);
+            localStorage.setItem('rustcord_search_history', JSON.stringify(searchHistory));
+            renderSearchHistory();
+            window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer');
+        }
+
+        function renderSearchHistory() {
+            const container = document.getElementById('searchHistory');
+            if (!container) return;
+            container.replaceChildren();
+            searchHistory.forEach(entry => {
+                const link = document.createElement('a');
+                link.className = 'post-card';
+                link.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(entry.query)}`;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.textContent = entry.query;
+                container.appendChild(link);
+            });
+        }
+
+        function extractYouTubeId(value) {
+            try {
+                const url = new URL(value);
+                let videoId = '';
+                if (url.hostname === 'youtu.be' || url.hostname === 'www.youtu.be') videoId = url.pathname.slice(1);
+                else if (['youtube.com', 'www.youtube.com', 'm.youtube.com'].includes(url.hostname)) {
+                    if (url.pathname === '/watch') videoId = url.searchParams.get('v') || '';
+                    else if (url.pathname.startsWith('/embed/') || url.pathname.startsWith('/shorts/')) videoId = url.pathname.split('/')[2] || '';
+                }
+                return /^[A-Za-z0-9_-]{11}$/.test(videoId) ? videoId : '';
+            } catch {
+                return '';
+            }
+        }
+
+        function addReel(event) {
+            event.preventDefault();
+            const input = document.getElementById('youtubeVideoUrl');
+            const videoId = extractYouTubeId(input.value.trim());
+            const status = document.getElementById('reels-status');
+            if (!videoId) {
+                status.textContent = 'Geçerli bir YouTube video veya Shorts bağlantısı girin.';
+                return;
+            }
+            if (!reels.includes(videoId)) reels.push(videoId);
+            localStorage.setItem('rustcord_reels', JSON.stringify(reels));
+            input.value = '';
+            status.textContent = '';
+            renderReels();
+        }
+
+        function renderReels() {
+            const list = document.getElementById('reelsList');
+            if (!list) return;
+            list.replaceChildren();
+            reels.forEach(videoId => {
+                const card = document.createElement('div');
+                card.className = 'reel-card';
+                const frame = document.createElement('iframe');
+                const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}`);
+                if (['http:', 'https:'].includes(window.location.protocol)) {
+                    embedUrl.searchParams.set('origin', window.location.origin);
+                }
+                frame.src = embedUrl.toString();
+                frame.title = 'YouTube kısa video';
+                frame.referrerPolicy = 'strict-origin-when-cross-origin';
+                frame.loading = 'lazy';
+                frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+                frame.allowFullscreen = true;
+                card.appendChild(frame);
+                list.appendChild(card);
+            });
+        }
+    </script>
+</body>
+</html>
