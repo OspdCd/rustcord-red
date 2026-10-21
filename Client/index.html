@@ -102,8 +102,8 @@
         #app-screen { display: none; width: 100vw; height: 100vh; overflow: hidden; }
 
         .far-left-bar {
-            width: 56px; background: #0c0c0e; border-right: 1px solid #1a1a20;
-            display: flex; flex-direction: column; align-items: center; padding: 16px 0; gap: 16px;
+            width: 72px; flex: 0 0 72px; background: #0c0c0e; border-right: 1px solid #1a1a20;
+            display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 10px; overflow-y: auto;
         }
         .brand-logo {
             width: 36px; height: 36px; background: #dc2626; border-radius: 10px;
@@ -120,6 +120,37 @@
             width: 250px; background: #101014; border-right: 1px solid #1a1a20;
             display: flex; flex-direction: column; justify-content: space-between;
         }
+        .group-server-divider { width: 34px; height: 2px; flex: 0 0 2px; margin: 2px 0; border-radius: 2px; background: #2b2b34; }
+        .group-server-rail { display: flex; width: 100%; flex-direction: column; align-items: center; gap: 8px; }
+        .group-server-icon { position: relative; display: grid; width: 48px; height: 48px; flex: 0 0 48px; place-items: center; border: 1px solid #292932; border-radius: 16px; background: #15151b; color: #dedee6; font-size: 14px; font-weight: 800; cursor: pointer; transition: border-radius .18s, border-color .18s, background .18s, transform .18s; }
+        .group-server-icon:hover, .group-server-icon.active { border-color: rgba(239,68,68,.42); border-radius: 14px; background: linear-gradient(145deg, #68232c, #26151a); color: white; transform: translateY(-1px); }
+        .group-server-icon.active::before { position: absolute; left: -13px; width: 4px; height: 22px; border-radius: 0 4px 4px 0; background: #f0525b; content: ""; }
+        .group-server-icon.add { border-style: dashed; color: #ff9da4; font-size: 24px; }
+        .friend-sidebar-content { display: flex; min-height: 0; flex: 1; flex-direction: column; }
+        .group-channels-sidebar { display: none; min-height: 0; flex: 1; flex-direction: column; overflow-y: auto; padding: 12px 9px; }
+        .left-sidebar.group-mode .friend-sidebar-content { display: none; }
+        .left-sidebar.group-mode .group-channels-sidebar { display: flex; }
+        .group-sidebar-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 9px 12px; border-bottom: 1px solid #24242c; }
+        .group-sidebar-header strong { overflow: hidden; color: #f4f4f5; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+        .group-sidebar-header span { display: block; margin-top: 4px; color: #858591; font-size: 10px; }
+        .group-sidebar-close { width: 28px; height: 28px; flex: 0 0 28px; border: 1px solid #2d2d36; border-radius: 8px; background: #18181e; color: #aaaab5; cursor: pointer; }
+        .group-categories-list { display: grid; gap: 11px; padding: 12px 0; }
+        .group-category { margin: 0; padding: 0; background: transparent; }
+        .group-category-heading { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 3px 4px 5px; color: #8d8d99; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+        .group-category-add { display: grid; width: 22px; height: 22px; place-items: center; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #9595a0; font-size: 16px; cursor: pointer; }
+        .group-category-add:hover { border-color: #35353e; background: #1b1b22; color: #fff; }
+        .group-channel-list { display: grid; gap: 2px; }
+        .group-channel { display: flex; width: 100%; min-width: 0; align-items: center; gap: 8px; margin: 0; padding: 7px 8px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #9999a5; font-size: 12px; text-align: left; cursor: pointer; }
+        .group-channel:hover { background: #18181f; color: #dddde5; }
+        .group-channel.active { border-color: #2c2931; background: #222127; color: #fff; }
+        .group-channel-icon { width: 16px; flex: 0 0 16px; color: #878792; font-size: 15px; text-align: center; }
+        .group-channel-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .group-admin-sidebar { margin-top: auto; padding: 10px 3px 4px; border-top: 1px solid #24242c; }
+        .group-admin-sidebar summary { padding: 4px; color: #92929e; font-size: 11px; font-weight: 650; cursor: pointer; }
+        .group-admin-sidebar .group-admin-tools { display: grid; padding: 8px 0 0; }
+        .group-admin-sidebar .auth-input { min-width: 0; min-height: 36px; padding: 8px 9px; font-size: 11px; }
+        .group-admin-sidebar .auth-btn { min-height: 35px; padding: 8px; font-size: 11px; }
+        .group-sidebar-moderator { display: grid; padding-top: 7px; }
         .search-box { padding: 14px 12px; border-bottom: 1px solid #1a1a20; display: flex; gap: 6px; }
         .search-input {
             flex: 1; background: #16161c; border: 1px solid #22222a; padding: 8px 12px;
@@ -276,6 +307,70 @@
         .search-history-remove:hover { border-color: #3c292d; background: #241619; color: #ff9da4; }
         .search-history-empty { padding: 18px; border: 1px dashed #30303a; border-radius: 12px; color: #92929e; font-size: 12px; text-align: center; }
         .left-icon svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+        .far-left-bar { gap: 10px; padding-top: 16px; }
+        .left-icon { width: 42px; height: 42px; color: #9797a4; }
+        .left-icon.active { color: #ffb0b5; }
+        .right-menu-panel::before { padding: 0 8px 6px; color: #777783; content: "MENÜ"; font-size: 10px; font-weight: 800; letter-spacing: .16em; }
+        .right-menu-panel { gap: 7px; }
+        .menu-btn { min-height: 44px; padding: 9px 11px; border-radius: 11px; font-size: 12px; }
+        .menu-btn-icon { display: grid; width: 28px; height: 28px; flex: 0 0 28px; place-items: center; border: 1px solid #2a252c; border-radius: 9px; background: #17151a; font-size: 14px; }
+        .menu-btn.active .menu-btn-icon { border-color: rgba(239,68,68,.22); background: rgba(127,29,29,.28); }
+        .menu-btn > span:last-child { color: #686873; font-size: 17px; transition: transform .18s, color .18s; }
+        .menu-btn:hover > span:last-child, .menu-btn.active > span:last-child { transform: translateX(2px); color: #ff9da4; }
+        .menu-btn.logout { margin-top: auto; }
+        .group-category { margin: 0; padding: 0; border-radius: 0; background: transparent; }
+        .group-channel { display: flex; width: 100%; min-width: 0; align-items: center; gap: 8px; margin: 0; padding: 7px 8px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #9999a5; font-size: 12px; text-align: left; cursor: pointer; }
+        .group-channel:hover { background: #18181f; color: #dddde5; }
+        .group-channel.active { border-color: #2c2931; background: #222127; color: #fff; }
+        .group-channel-icon { width: 16px; flex: 0 0 16px; color: #878792; font-size: 15px; text-align: center; }
+        .group-admin-sidebar .group-admin-tools { display: grid; gap: 7px; padding: 8px 0 0; }
+        .group-admin-sidebar .auth-input { min-width: 0; min-height: 36px; padding: 8px 9px; font-size: 11px; }
+        .group-admin-sidebar .auth-btn { min-height: 35px; padding: 8px; font-size: 11px; }
+        .group-sidebar-moderator { display: none; padding-top: 7px; }
+        .group-workspace { min-width: 0; min-height: 0; flex: 1; flex-direction: column; overflow: hidden; padding: 0 !important; }
+        .mobile-group-channels { display: none; }
+        .group-workspace-header { display: flex; min-height: 62px; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 20px; border-bottom: 1px solid #22222a; background: #0d0d11; }
+        .group-workspace-channel { display: flex; min-width: 0; align-items: center; gap: 11px; }
+        .group-workspace-channel > span { color: #9696a2; font-size: 22px; font-weight: 700; }
+        .group-workspace-channel h3 { overflow: hidden; color: #f4f4f5; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+        .group-workspace-channel p { margin-top: 3px; color: #898994; font-size: 10px; }
+        .group-workspace-back { padding: 7px 10px; border: 1px solid #2a2a33; border-radius: 9px; background: #17171d; color: #bcbcc6; font-size: 10px; cursor: pointer; }
+        .group-text-view, .group-voice-view { display: flex; min-height: 0; flex: 1; flex-direction: column; padding: 14px 18px 12px; }
+        .group-message-list { display: flex; min-height: 0; flex: 1; flex-direction: column; gap: 8px; overflow-y: auto; padding: 8px 4px; }
+        .group-message-line { max-width: min(78%, 680px); padding: 8px 11px; border: 1px solid #25252d; border-radius: 11px 11px 11px 4px; background: #121216; color: #dedee6; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+        .group-message-line strong { display: block; margin-bottom: 3px; color: #f3a0a5; font-size: 10px; }
+        .group-chat-composer { display: flex; gap: 8px; padding: 10px; border: 1px solid #292933; border-radius: 13px; background: #131318; }
+        .group-chat-composer .auth-input { min-height: 40px; border: 0; background: transparent; }
+        .group-chat-composer .auth-btn { width: 40px; min-width: 40px; padding: 8px; border-radius: 10px; }
+        .group-channel-status { min-height: 16px; padding-top: 5px; color: #888894; font-size: 10px; }
+        .group-voice-view { gap: 12px; background: radial-gradient(ellipse at 50% 40%, rgba(91,20,67,.16), transparent 48%), #09090c; }
+        .voice-stage-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .voice-stage-eyebrow { color: #b975ba; font-size: 9px; font-weight: 800; letter-spacing: .16em; }
+        .voice-stage-heading h4 { margin-top: 3px; color: #f4f4f5; font-size: 16px; }
+        .voice-stage-heading p { margin-top: 4px; color: #92929e; font-size: 11px; }
+        .voice-participant-count { padding: 6px 9px; border: 1px solid #29252e; border-radius: 999px; background: #121116; color: #bcbcc6; font-size: 10px; }
+        .voice-stage { display: grid; min-height: 180px; flex: 1; place-items: center; overflow: auto; padding: 12px; border: 1px solid #24232c; border-radius: 16px; background: radial-gradient(ellipse at 50% 0%, rgba(102,24,80,.17), transparent 55%), #0d0d11; }
+        .voice-empty-state { display: grid; justify-items: center; gap: 8px; padding: 18px; text-align: center; }
+        .voice-empty-art { display: flex; height: clamp(80px, 16vh, 155px); align-items: center; justify-content: center; gap: 14px; color: #ad6cc1; font-size: 23px; }
+        .voice-empty-art strong { display: grid; width: clamp(72px, 12vw, 120px); height: clamp(72px, 12vw, 120px); place-items: center; border: 1px solid rgba(201,117,219,.25); border-radius: 28px; background: radial-gradient(circle at 35% 25%, #8b48a3, #36143f 68%); box-shadow: 0 18px 60px rgba(141,40,153,.23); color: #f1d2ff; font-size: clamp(30px, 5vw, 52px); }
+        .voice-empty-state h4 { color: #f3f0f5; font-size: 14px; }
+        .voice-empty-state p { max-width: 300px; color: #92929e; font-size: 11px; line-height: 1.5; }
+        .group-media-grid { display: grid; width: 100%; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 10px; margin: 0; }
+        .group-media-tile { min-height: clamp(180px, 38vh, 440px); border-radius: 13px; background: #c5c5c5; }
+        .group-media-tile video { min-height: clamp(180px, 38vh, 440px); }
+        .voice-participant-tile { display: grid; place-items: center; background: radial-gradient(ellipse at 50% 28%, #38313d, #16141a 72%); }
+        .voice-participant-tile audio { display: none; }
+        .voice-participant-avatar { display: grid; width: 76px; height: 76px; place-items: center; border: 2px solid rgba(255,255,255,.68); border-radius: 50%; background: linear-gradient(145deg, #f3b8bd, #9d4751); box-shadow: 0 12px 35px rgba(0,0,0,.35); color: #fff; font-size: 28px; font-weight: 750; }
+        .voice-participant-avatar[hidden] { display: none; }
+        .voice-participant-tile video { position: absolute; inset: 0; width: 100%; height: 100%; }
+        .group-media-tile span { left: 12px; bottom: 12px; padding: 6px 9px; border-radius: 8px; }
+        .voice-call-dock { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px; border: 1px solid #27252e; border-radius: 15px; background: rgba(20,19,24,.95); }
+        .voice-control { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid #34313a; border-radius: 12px; background: #1b1a20; color: #efedf2; font-size: 16px; cursor: pointer; }
+        .voice-control:hover:not(:disabled) { border-color: #605567; background: #28232d; }
+        .voice-control:disabled { opacity: .38; cursor: not-allowed; }
+        .voice-control.join { border-color: rgba(82,190,125,.28); background: #17452e; color: #d9ffeb; }
+        .voice-control.hangup { margin-left: 8px; border-color: #d73541; background: #d72d3b; color: white; }
+        #voice-empty-state[hidden] { display: none; }
         .group-admin-tools { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 0; }
         .group-admin-tools input, .group-admin-tools select { min-width: 130px; flex: 1; }
         .pull-refresh-indicator { display: none; text-align: center; color: #a1a1aa; font-size: 12px; padding: 8px; }
@@ -361,7 +456,7 @@
         .top-right-watermark { display: none; }
         #app-screen { background: #09090c; }
         .far-left-bar {
-            width: 64px; flex: 0 0 64px; padding: 20px 0; gap: 12px;
+            width: 72px; flex: 0 0 72px; padding: 14px 0; gap: 10px;
             background: #0b0b0f; border-color: #1b1b23;
         }
         .brand-logo { width: 40px; height: 40px; border-radius: 13px; }
@@ -428,6 +523,11 @@
         .menu-btn.active { background: linear-gradient(100deg, rgba(153,27,27,.24), rgba(24,20,25,.75)); border-color: rgba(239,68,68,.36); }
         .tab-content[style*="padding:20px"] { padding: 24px !important; }
         #tab-Gruplar > h2, #tab-Arama > h2, #tab-Bildirim > h2 { margin: 4px 0 12px; color: #fafafa; letter-spacing: -.025em; }
+        #tab-Gruplar.group-open { padding: 0 !important; }
+        #tab-Gruplar.group-open > .group-page-heading, #tab-Gruplar.group-open > #groups-status { display: none; }
+        .group-workspace-active .story-bar { display: none; }
+        .group-workspace-active .main-feed-area { overflow: hidden; }
+        .group-workspace-active .right-menu-panel { display: none; }
 
         @media (min-width: 721px) and (max-width: 1100px) {
             .left-sidebar { width: 215px; flex-basis: 215px; }
@@ -547,6 +647,17 @@
         }
         @media (max-width: 720px) {
             .far-left-bar, .left-sidebar { display: none; }
+            #tab-Gruplar.group-open { padding: 0 !important; }
+            .group-workspace-header { min-height: 54px; padding: 8px 12px; }
+            .group-workspace-back { padding: 7px 8px; }
+            .group-text-view, .group-voice-view { padding: 10px; }
+            .mobile-group-channels { display: flex; gap: 6px; overflow-x: auto; padding: 8px 10px; border-bottom: 1px solid #25252d; background: #101014; scrollbar-width: thin; }
+            .mobile-group-channels .group-channel { width: auto; flex: 0 0 auto; padding: 7px 9px; border-color: #292932; background: #16161c; }
+            .voice-stage { min-height: 200px; padding: 8px; }
+            .voice-call-dock { gap: 6px; padding: 6px; }
+            .voice-control { width: 39px; height: 39px; }
+            .group-media-grid { grid-template-columns: minmax(0, 1fr); }
+            .group-media-tile, .group-media-tile video { min-height: 200px; }
         }
         .far-left-bar { gap: 10px; padding-top: 16px; }
         .left-icon { width: 42px; height: 42px; color: #9797a4; }
@@ -605,6 +716,9 @@
             .mobile-menu-item { display: flex; min-height: 44px; align-items: center; gap: 9px; padding: 8px 10px; border: 1px solid #272730; border-radius: 11px; background: #15151b; color: #d8d8e0; font-size: 11px; text-align: left; }
             .mobile-menu-item span:first-child { display: grid; width: 25px; height: 25px; flex: 0 0 25px; place-items: center; border-radius: 8px; background: #20181d; color: #ff9da4; }
             .mobile-menu-item.logout { border-color: rgba(239,68,68,.2); color: #ffb0b5; }
+            #tab-Gruplar.group-open { padding: 0 !important; }
+            .group-workspace { height: 100%; }
+            .group-sidebar-close { display: none; }
         }
     </style>
 </head>
@@ -772,19 +886,54 @@
             <button class="left-icon active" type="button" id="icon-Ev" aria-label="Ana sayfa" title="Ana sayfa" onclick="switchTab('Ev')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg></button>
             <button class="left-icon" type="button" id="icon-Mesaj" aria-label="Mesajlar" title="Mesajlar" onclick="switchTab('Mesaj')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 9 9 0 0 1-4-.9L4 20l1.2-3.2A7 7 0 0 1 4 12c0-4.1 3.6-7.5 8-7.5s8 3.1 8 7z"></path><path d="M8 11h8M8 14h5"></path></svg></button>
             <button class="left-icon" type="button" id="icon-Bildirim" aria-label="Bildirimler" title="Bildirimler" onclick="switchTab('Bildirim')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"></path></svg></button>
+            <div class="group-server-divider" aria-hidden="true"></div>
+            <div id="groupServerRail" class="group-server-rail" aria-label="Grupların"></div>
+            <button class="group-server-icon add" type="button" title="Grup oluştur" aria-label="Grup oluştur" onclick="switchTab('Gruplar');document.getElementById('newGroupName').focus()">＋</button>
         </div>
 
         <div class="left-sidebar">
-            <div class="search-box">
-                <span class="search-icon" aria-hidden="true">⌕</span>
-                <input id="friendSearch" type="search" class="search-input" placeholder="Arkadaş ara..." oninput="filterFriends()">
-                <button class="add-friend-btn-small" type="button" onclick="openModal('friend-modal')" title="Arkadaş Ekle" aria-label="Arkadaş ekle">+</button>
+            <div class="friend-sidebar-content">
+                <div class="search-box">
+                    <span class="search-icon" aria-hidden="true">⌕</span>
+                    <input id="friendSearch" type="search" class="search-input" placeholder="Arkadaş ara..." oninput="filterFriends()">
+                    <button class="add-friend-btn-small" type="button" onclick="openModal('friend-modal')" title="Arkadaş Ekle" aria-label="Arkadaş ekle">+</button>
+                </div>
+                <div class="user-section">
+                    <div class="section-header">Arkadaşlarım</div>
+                    <div id="friendsListContainer" style="display: flex; flex-direction: column; gap: 4px;"></div>
+                    <div class="section-header" style="margin-top:8px;">Arkadaşlık İstekleri</div>
+                    <div id="friendRequestsContainer" style="display: flex; flex-direction: column; gap: 4px;"></div>
+                </div>
             </div>
-            <div class="user-section">
-                <div class="section-header">Arkadaşlarım</div>
-                <div id="friendsListContainer" style="display: flex; flex-direction: column; gap: 4px;"></div>
-                <div class="section-header" style="margin-top:8px;">Arkadaşlık İstekleri</div>
-                <div id="friendRequestsContainer" style="display: flex; flex-direction: column; gap: 4px;"></div>
+            <div id="groupChannelsSidebar" class="group-channels-sidebar">
+                <div class="group-sidebar-header">
+                    <div>
+                        <strong id="groupSidebarName">Grup kanalları</strong>
+                        <span id="groupSidebarMeta"></span>
+                    </div>
+                    <button class="group-sidebar-close" type="button" title="Grup listesini göster" aria-label="Grup listesini göster" onclick="returnToGroups()">×</button>
+                </div>
+                <div id="groupCategories" class="group-categories-list"></div>
+                <div id="group-settings-status" class="status-message" role="status"></div>
+                <details id="groupAdminTools" class="group-admin-sidebar" style="display:none;">
+                    <summary>＋ Kanal ekle</summary>
+                    <form id="addGroupChannelForm" class="group-admin-tools" onsubmit="addGroupChannel(event)">
+                        <input id="groupCategoryName" class="auth-input" maxlength="40" placeholder="Kategori adı (örn. OYUN)" required>
+                        <input id="groupChannelName" class="auth-input" maxlength="48" placeholder="Kanal adı" required>
+                        <select id="groupChannelKind" class="auth-input" aria-label="Kanal türü">
+                            <option value="text"># Metin kanalı</option>
+                            <option value="voice">◖ Ses kanalı</option>
+                        </select>
+                        <button class="auth-btn" type="submit">Kanal oluştur</button>
+                    </form>
+                </details>
+                <details id="groupModeratorTools" class="group-admin-sidebar" style="display:none;">
+                    <summary>Moderatör yönetimi</summary>
+                    <form id="groupModeratorForm" class="group-admin-tools group-sidebar-moderator" onsubmit="assignGroupModerator(event)">
+                        <input id="groupModeratorNick" class="auth-input" maxlength="32" placeholder="Moderatör kullanıcı adı" required>
+                        <button class="auth-btn" type="submit">Moderatör ata</button>
+                    </form>
+                </details>
             </div>
 
             <div class="user-profile-footer">
@@ -878,40 +1027,52 @@
                 </form>
                 <div id="groupsList" class="groups-grid"></div>
                 <div id="groups-status" class="status-message" role="status"></div>
-                <section id="groupDetail" style="display:none;flex:1;min-height:0;flex-direction:column;">
-                    <button class="auth-btn group-detail-back" type="button" onclick="returnToGroups()">← Gruplara dön</button>
-                    <h3 id="groupTitle" class="group-detail-title"></h3>
-                    <div id="groupCategories"></div>
-                    <div id="groupAdminTools" class="group-admin-tools" style="display:none;">
-                        <form id="addGroupChannelForm" class="group-admin-tools" style="flex:1;margin:0;" onsubmit="addGroupChannel(event)">
-                            <input id="groupCategoryName" class="auth-input" maxlength="40" placeholder="Kategori (örn. OYUN)" required>
-                            <input id="groupChannelName" class="auth-input" maxlength="48" placeholder="Kanal adı" required>
-                            <select id="groupChannelKind" class="auth-input" aria-label="Kanal türü">
-                                <option value="text">Metin kanalı</option>
-                                <option value="voice">Ses kanalı</option>
-                            </select>
-                            <button class="auth-btn" type="submit">Kanal ekle</button>
+                <section id="groupDetail" class="group-workspace" style="display:none;">
+                    <div id="mobileGroupChannels" class="mobile-group-channels" aria-label="Grup kanalları"></div>
+                    <header class="group-workspace-header">
+                        <div class="group-workspace-channel">
+                            <span id="groupChannelHeaderIcon" aria-hidden="true">#</span>
+                            <div>
+                                <h3 id="groupTitle"></h3>
+                                <p id="groupChannelHeaderMeta"></p>
+                            </div>
+                        </div>
+                        <button class="group-workspace-back" type="button" onclick="returnToGroups()">Grup listesi</button>
+                    </header>
+                    <section id="groupTextChannelView" class="group-text-view">
+                        <div id="group-chat-messages" class="group-message-list" aria-live="polite"></div>
+                        <form class="group-chat-composer" onsubmit="sendGroupMessage(event)">
+                            <input id="groupChatInput" class="auth-input" maxlength="500" placeholder="Kanala mesaj yaz..." required>
+                            <button class="auth-btn" type="submit" aria-label="Mesajı gönder">➤</button>
                         </form>
-                    </div>
-                    <form id="groupModeratorForm" class="group-admin-tools" style="display:none;margin:0;" onsubmit="assignGroupModerator(event)">
-                        <input id="groupModeratorNick" class="auth-input" maxlength="32" placeholder="Moderatör kullanıcı adı" required>
-                        <button class="auth-btn" type="submit">Moderatör ata</button>
-                    </form>
-                    <div id="group-settings-status" class="status-message" role="status"></div>
-                    <div class="group-call-controls" aria-label="Grup ses odası kontrolleri">
-                        <button id="voiceJoinButton" class="auth-btn" type="button" onclick="joinVoiceRoom()">🎙️ Ses odasına katıl</button>
-                        <button id="microphoneButton" class="auth-btn" type="button" onclick="toggleGroupMicrophone()" disabled>🔇 Mikrofonu sustur</button>
-                        <button id="cameraButton" class="auth-btn" type="button" onclick="toggleGroupCamera()" disabled>📷 Kamerayı aç</button>
-                        <button id="screenShareButton" class="auth-btn" type="button" onclick="toggleScreenShare()" disabled>🖥️ Ekranı paylaş</button>
-                        <button id="voiceLeaveButton" class="auth-btn" type="button" onclick="leaveVoiceRoom()" disabled>📴 Odadan ayrıl</button>
-                    </div>
-                    <div id="group-media-grid" class="group-media-grid" aria-label="Ses odası katılımcıları"></div>
-                    <div id="group-chat-messages" class="community-messages" aria-live="polite" style="min-height:120px;"></div>
-                    <form class="group-chat-composer" onsubmit="sendGroupMessage(event)">
-                        <input id="groupChatInput" class="auth-input" maxlength="500" placeholder="Gruba mesaj yaz..." required>
-                        <button class="auth-btn" type="submit">Gönder</button>
-                    </form>
-                    <div id="group-chat-status" class="status-message" role="status"></div>
+                        <div id="group-chat-status" class="group-channel-status" role="status"></div>
+                    </section>
+                    <section id="groupVoiceChannelView" class="group-voice-view" style="display:none;">
+                        <div class="voice-stage-heading">
+                            <div>
+                                <span class="voice-stage-eyebrow">SES KANALI</span>
+                                <h4 id="voiceStageTitle">Lobi</h4>
+                                <p id="voiceStageStatus">Katılınca burada birlikte konuşabilirsiniz.</p>
+                            </div>
+                            <span id="voiceParticipantCount" class="voice-participant-count">0 kişi</span>
+                        </div>
+                        <div class="voice-stage">
+                            <div id="voice-empty-state" class="voice-empty-state">
+                                <div class="voice-empty-art" aria-hidden="true"><span>✦</span><strong>◉</strong><span>✧</span></div>
+                                <h4>Ses kanalına katıl</h4>
+                                <p>Mikrofon izni vererek arkadaşlarınla canlı sohbete başlayabilirsin.</p>
+                            </div>
+                            <div id="group-media-grid" class="group-media-grid" aria-label="Ses odası katılımcıları"></div>
+                        </div>
+                        <div class="voice-call-dock" aria-label="Ses kanalı kontrolleri">
+                            <button id="voiceJoinButton" class="voice-control join" type="button" onclick="joinVoiceRoom()" aria-label="Ses kanalına katıl" title="Ses kanalına katıl">🎙</button>
+                            <button id="microphoneButton" class="voice-control" type="button" onclick="toggleGroupMicrophone()" disabled aria-label="Mikrofonu sustur" title="Mikrofonu sustur">🎙</button>
+                            <button id="cameraButton" class="voice-control" type="button" onclick="toggleGroupCamera()" disabled aria-label="Kamerayı aç" title="Kamerayı aç">▣</button>
+                            <button id="screenShareButton" class="voice-control" type="button" onclick="toggleScreenShare()" disabled aria-label="Ekranı paylaş" title="Ekranı paylaş">▤</button>
+                            <button id="voiceLeaveButton" class="voice-control hangup" type="button" onclick="leaveVoiceRoom()" disabled aria-label="Ses kanalından ayrıl" title="Ses kanalından ayrıl">☎</button>
+                        </div>
+                        <div id="voice-chat-status" class="group-channel-status" role="status"></div>
+                    </section>
                 </section>
             </div>
 
@@ -1248,6 +1409,8 @@
         let groupSocket = null;
         let activeGroupId = null;
         let activeGroup = null;
+        let activeGroupChannel = null;
+        let cachedGroups = [];
         let activeStoryIndex = -1;
         let refreshTouchStart = null;
         const groupPeerId = crypto.randomUUID();
@@ -1557,6 +1720,9 @@
             document.querySelectorAll('.mobile-nav-button[data-tab]').forEach(button => {
                 button.classList.toggle('active', button.dataset.tab === tabName);
             });
+            document.querySelector('.left-sidebar').classList.toggle('group-mode', tabName === 'Gruplar' && Boolean(activeGroup));
+            document.getElementById('tab-Gruplar').classList.toggle('group-open', tabName === 'Gruplar' && Boolean(activeGroup));
+            document.getElementById('app-screen').classList.toggle('group-workspace-active', tabName === 'Gruplar' && Boolean(activeGroup));
             closeMobileMenu();
             if (tabName === 'Ev') connectCommunityChat();
             if (tabName === 'Mesaj') {
@@ -2063,6 +2229,8 @@
             const status = document.getElementById('groups-status');
             try {
                 const groups = await apiRequest('/api/groups');
+                cachedGroups = groups;
+                renderGroupServerRail(groups);
                 const list = document.getElementById('groupsList');
                 list.replaceChildren();
                 groups.forEach(group => {
@@ -2113,7 +2281,9 @@
                     })
                 });
                 renderGroupCategories(activeGroup);
+                await loadGroups();
                 document.getElementById('addGroupChannelForm').reset();
+                document.getElementById('groupAdminTools').open = false;
                 status.textContent = 'Kanal eklendi.';
             } catch (error) {
                 status.textContent = error.message;
@@ -2138,76 +2308,179 @@
 
         function renderGroupCategories(group) {
             const container = document.getElementById('groupCategories');
+            const mobileChannels = document.getElementById('mobileGroupChannels');
             container.replaceChildren();
+            mobileChannels.replaceChildren();
             group.categories.forEach(category => {
                 const section = document.createElement('section');
                 section.className = 'group-category';
-                const title = document.createElement('div');
-                title.className = 'group-category-title';
-                title.textContent = category.name;
-                section.appendChild(title);
+                const heading = document.createElement('div');
+                heading.className = 'group-category-heading';
+                const title = document.createElement('span');
+                title.textContent = category.name.toLocaleUpperCase('tr');
+                heading.appendChild(title);
+                if (group.role === 'founder' || group.role === 'moderator') {
+                    const addButton = document.createElement('button');
+                    addButton.type = 'button';
+                    addButton.className = 'group-category-add';
+                    addButton.textContent = '+';
+                    addButton.title = `${category.name} kategorisine kanal ekle`;
+                    addButton.setAttribute('aria-label', addButton.title);
+                    addButton.addEventListener('click', () => {
+                        document.getElementById('groupCategoryName').value = category.name;
+                        document.getElementById('groupAdminTools').open = true;
+                        document.getElementById('groupChannelName').focus();
+                    });
+                    heading.appendChild(addButton);
+                }
+                section.appendChild(heading);
+                const channelList = document.createElement('div');
+                channelList.className = 'group-channel-list';
                 category.channels.forEach(channel => {
-                    const item = document.createElement('span');
-                    item.className = 'group-channel';
-                    item.textContent = `${channel.kind === 'voice' ? '🔊' : '#'} ${channel.name}`;
-                    section.appendChild(item);
+                    const item = document.createElement('button');
+                    item.type = 'button';
+                    item.className = `group-channel${activeGroupChannel?.id === channel.id ? ' active' : ''}`;
+                    const icon = document.createElement('span');
+                    icon.className = 'group-channel-icon';
+                    icon.textContent = channel.kind === 'voice' ? '◖' : '#';
+                    const name = document.createElement('span');
+                    name.className = 'group-channel-name';
+                    name.textContent = channel.name;
+                    item.append(icon, name);
+                    item.setAttribute('aria-current', activeGroupChannel?.id === channel.id ? 'page' : 'false');
+                    item.addEventListener('click', () => selectGroupChannel(channel));
+                    channelList.appendChild(item);
+                    const mobileItem = item.cloneNode(true);
+                    mobileItem.addEventListener('click', () => selectGroupChannel(channel));
+                    mobileChannels.appendChild(mobileItem);
                 });
+                section.appendChild(channelList);
                 container.appendChild(section);
             });
             const canManageChannels = group.role === 'founder' || group.role === 'moderator';
-            document.getElementById('groupAdminTools').style.display = canManageChannels ? 'flex' : 'none';
-            document.getElementById('groupModeratorForm').style.display = group.role === 'founder' ? 'flex' : 'none';
+            document.getElementById('groupAdminTools').style.display = canManageChannels ? 'block' : 'none';
+            document.getElementById('groupModeratorTools').style.display = group.role === 'founder' ? 'block' : 'none';
+            document.getElementById('groupModeratorForm').style.display = group.role === 'founder' ? 'grid' : 'none';
+            document.getElementById('groupSidebarName').textContent = group.name;
+            document.getElementById('groupSidebarMeta').textContent = `${group.members_count} üye · ${group.role === 'founder' ? 'Kurucu' : group.role === 'moderator' ? 'Moderatör' : 'Üye'}`;
+            renderGroupServerRail();
         }
 
-        function openGroup(group) {
-            const groupId = group.id;
-            activeGroup = group;
-            activeGroupId = groupId;
-            document.getElementById('createGroupForm').style.display = 'none';
-            document.getElementById('groupsList').style.display = 'none';
-            document.getElementById('groups-status').textContent = '';
-            document.getElementById('groupDetail').style.display = 'flex';
-            document.getElementById('groupTitle').textContent = `${group.name} · ${group.members_count} üye · ${group.owner} (Kurucu)`;
-            document.getElementById('group-settings-status').textContent = '';
-            renderGroupCategories(group);
-            document.getElementById('group-chat-messages').replaceChildren();
-            document.getElementById('group-chat-status').textContent = 'Grup sohbetine bağlanılıyor...';
-            voiceSocketReady = false;
-            updateVoiceControls();
+        function renderGroupServerRail(groups = cachedGroups) {
+            const rail = document.getElementById('groupServerRail');
+            if (!rail) return;
+            rail.replaceChildren();
+            groups.forEach(group => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `group-server-icon${activeGroupId === group.id ? ' active' : ''}`;
+                button.textContent = group.name.trim().charAt(0).toLocaleUpperCase('tr') || 'G';
+                button.title = group.name;
+                button.setAttribute('aria-label', `${group.name} grubunu aç`);
+                button.setAttribute('aria-current', activeGroupId === group.id ? 'page' : 'false');
+                button.addEventListener('click', () => openGroup(group));
+                rail.appendChild(button);
+            });
+        }
 
-            if (groupSocket) groupSocket.close();
+        function selectGroupChannel(channel) {
+            if (!activeGroup || !channel) return;
+            if (voiceActive) leaveVoiceRoom();
+            if (groupSocket) {
+                groupSocket.close();
+                groupSocket = null;
+            }
+            activeGroupChannel = channel;
+            const isVoice = channel.kind === 'voice';
+            document.getElementById('groupTitle').textContent = channel.name;
+            document.getElementById('groupChannelHeaderIcon').textContent = isVoice ? '◖' : '#';
+            document.getElementById('groupChannelHeaderMeta').textContent = `${activeGroup.name} · ${isVoice ? 'Ses kanalı' : 'Metin kanalı'}`;
+            document.getElementById('voiceStageTitle').textContent = channel.name;
+            document.getElementById('groupTextChannelView').style.display = isVoice ? 'none' : 'flex';
+            document.getElementById('groupVoiceChannelView').style.display = isVoice ? 'flex' : 'none';
+            document.getElementById('group-chat-messages').replaceChildren();
+            document.getElementById('group-media-grid').replaceChildren();
+            document.getElementById('voice-empty-state').hidden = false;
+            document.getElementById('voiceParticipantCount').textContent = '0 kişi';
+            document.getElementById('group-chat-status').textContent = '';
+            document.getElementById('voice-chat-status').textContent = '';
+            document.getElementById('voiceStageStatus').textContent = isVoice
+                ? 'Katılınca burada birlikte konuşabilirsiniz.'
+                : '';
+            document.getElementById('groupChatInput').placeholder = `#${channel.name} kanalına mesaj yaz...`;
+            renderGroupCategories(activeGroup);
+            connectGroupChannel(activeGroup, channel);
+        }
+
+        function connectGroupChannel(group, channel) {
             const wsBase = new URL(API_BASE);
             wsBase.protocol = wsBase.protocol === 'https:' ? 'wss:' : 'ws:';
-            const socket = new WebSocket(`${wsBase.origin}/ws/groups/${encodeURIComponent(groupId)}`);
+            const socket = new WebSocket(
+                `${wsBase.origin}/ws/groups/${encodeURIComponent(group.id)}/${encodeURIComponent(channel.id)}`
+            );
             groupSocket = socket;
+            const statusId = channel.kind === 'voice' ? 'voice-chat-status' : 'group-chat-status';
+            document.getElementById(statusId).textContent = 'Kanala bağlanılıyor...';
+            voiceSocketReady = false;
+            updateVoiceControls();
             socket.onopen = () => {
                 if (groupSocket !== socket) return;
                 voiceSocketReady = true;
                 updateVoiceControls();
-                if (activeGroupId === groupId) {
-                    document.getElementById('group-chat-status').textContent = 'Grup sohbetine bağlandın.';
-                }
+                document.getElementById(statusId).textContent = channel.kind === 'voice'
+                    ? 'Ses kanalı hazır.'
+                    : 'Kanala bağlandın.';
             };
             socket.onmessage = event => {
-                if (activeGroupId !== groupId) return;
-                handleGroupSocketMessage(event.data, groupId).catch(error => {
-                    document.getElementById('group-chat-status').textContent = `Grup bağlantısı hatası: ${error.message}`;
+                if (groupSocket !== socket || activeGroupId !== group.id || activeGroupChannel?.id !== channel.id) return;
+                handleGroupSocketMessage(event.data, group.id, channel.id).catch(error => {
+                    document.getElementById(statusId).textContent = `Kanal bağlantısı hatası: ${error.message}`;
                 });
             };
             socket.onerror = () => {
-                if (groupSocket === socket && activeGroupId === groupId) {
-                    document.getElementById('group-chat-status').textContent = 'Grup sohbetine bağlanılamadı.';
-                }
+                if (groupSocket === socket) document.getElementById(statusId).textContent = 'Kanala bağlanılamadı.';
             };
             socket.onclose = () => {
                 if (groupSocket !== socket) return;
                 voiceSocketReady = false;
                 if (voiceActive) leaveVoiceRoom();
                 updateVoiceControls();
-                if (activeGroupId === groupId) {
-                    document.getElementById('group-chat-status').textContent = 'Grup sohbeti bağlantısı kapandı.';
-                }
+                document.getElementById(statusId).textContent = 'Kanal bağlantısı kapandı.';
             };
+        }
+
+        function openGroup(group) {
+            if (activeGroupId !== group.id && voiceActive) leaveVoiceRoom();
+            activeGroup = group;
+            activeGroupId = group.id;
+            document.querySelector('.left-sidebar').classList.add('group-mode');
+            document.getElementById('tab-Gruplar').classList.add('group-open');
+            document.getElementById('app-screen').classList.add('group-workspace-active');
+            document.getElementById('createGroupForm').style.display = 'none';
+            document.getElementById('groupsList').style.display = 'none';
+            document.getElementById('groups-status').textContent = '';
+            document.getElementById('groupDetail').style.display = 'flex';
+            document.getElementById('group-settings-status').textContent = '';
+            renderGroupCategories(group);
+            const channels = group.categories.flatMap(category => category.channels);
+            const channel = channels.find(item => item.kind === 'text') || channels[0];
+            if (channel) selectGroupChannel(channel);
+            else {
+                activeGroupChannel = null;
+                if (groupSocket) groupSocket.close();
+                groupSocket = null;
+                voiceSocketReady = false;
+                updateVoiceControls();
+                document.getElementById('groupTitle').textContent = group.name;
+                document.getElementById('groupChannelHeaderMeta').textContent = 'Henüz kanal oluşturulmadı.';
+                document.getElementById('groupTextChannelView').style.display = 'none';
+                document.getElementById('groupVoiceChannelView').style.display = 'none';
+            }
+            if (document.getElementById('tab-Gruplar').classList.contains('active')) {
+                document.getElementById('tab-Gruplar').scrollTop = 0;
+            } else {
+                switchTab('Gruplar');
+            }
         }
 
         function sendGroupSignal(message) {
@@ -2218,7 +2491,7 @@
             return false;
         }
 
-        async function handleGroupSocketMessage(data, groupId) {
+        async function handleGroupSocketMessage(data, groupId, channelId) {
             let message;
             try { message = JSON.parse(data); }
             catch { message = { author: 'Kullanıcı', text: data }; }
@@ -2275,7 +2548,9 @@
                 return;
             }
             if (message.type) return;
-            if (activeGroupId === groupId) appendGroupMessage(message.author || 'Kullanıcı', message.text || '');
+            if (activeGroupId === groupId && activeGroupChannel?.id === channelId) {
+                appendGroupMessage(message.author || 'Kullanıcı', message.text || '');
+            }
         }
 
         function ensureGroupPeerConnection(peerId) {
@@ -2322,7 +2597,7 @@
                         description: connection.localDescription
                     });
                 } catch (error) {
-                    document.getElementById('group-chat-status').textContent = `Bağlantı kurulamadı: ${error.message}`;
+                    document.getElementById('voice-chat-status').textContent = `Bağlantı kurulamadı: ${error.message}`;
                 } finally {
                     peer.makingOffer = false;
                 }
@@ -2343,18 +2618,31 @@
             if (!tile) {
                 tile = document.createElement('div');
                 tile.id = `group-peer-${peerId}`;
-                tile.className = 'group-media-tile';
+                tile.className = 'group-media-tile voice-participant-tile';
                 const video = document.createElement('video');
                 video.autoplay = true;
+                video.muted = true;
                 video.playsInline = true;
                 video.srcObject = stream;
+                const audio = document.createElement('audio');
+                audio.autoplay = true;
+                audio.srcObject = stream;
+                const avatar = document.createElement('div');
+                avatar.className = 'voice-participant-avatar';
+                avatar.textContent = nick.charAt(0).toLocaleUpperCase('tr') || 'K';
                 const label = document.createElement('span');
                 label.textContent = nick;
-                tile.append(video, label);
+                tile.append(video, audio, avatar, label);
                 grid.appendChild(tile);
             } else {
                 tile.querySelector('video').srcObject = stream;
+                tile.querySelector('audio').srcObject = stream;
             }
+            const video = tile.querySelector('video');
+            const hasVideo = stream.getVideoTracks().some(track => track.readyState === 'live');
+            video.style.display = hasVideo ? 'block' : 'none';
+            tile.querySelector('.voice-participant-avatar').hidden = hasVideo;
+            updateVoiceParticipantCount();
         }
 
         function closeGroupPeer(peerId) {
@@ -2362,39 +2650,59 @@
             if (peer) peer.connection.close();
             groupPeerConnections.delete(peerId);
             document.getElementById(`group-peer-${peerId}`)?.remove();
+            updateVoiceParticipantCount();
         }
 
         function updateVoiceControls() {
             document.getElementById('voiceJoinButton').disabled = voiceActive || voiceJoining || !voiceSocketReady;
-            document.getElementById('voiceJoinButton').classList.toggle('active', voiceActive);
-            document.getElementById('voiceJoinButton').textContent = voiceActive
-                ? '🎙️ Mikrofona katıldın'
-                : voiceJoining ? '🎙️ Mikrofon izni bekleniyor...' : '🎙️ Ses odasına katıl';
+            document.getElementById('voiceJoinButton').textContent = voiceJoining ? '…' : '🎙';
+            document.getElementById('voiceJoinButton').title = voiceActive ? 'Mikrofona katıldın' : voiceJoining ? 'Mikrofon izni bekleniyor' : 'Ses kanalına katıl';
+            document.getElementById('voiceJoinButton').setAttribute('aria-label', document.getElementById('voiceJoinButton').title);
             document.getElementById('microphoneButton').disabled = !voiceActive;
-            document.getElementById('microphoneButton').textContent = microphoneMuted ? '🎙️ Mikrofonu aç' : '🔇 Mikrofonu sustur';
+            document.getElementById('microphoneButton').textContent = microphoneMuted ? '🔇' : '🎙';
+            document.getElementById('microphoneButton').title = microphoneMuted ? 'Mikrofonu aç' : 'Mikrofonu sustur';
+            document.getElementById('microphoneButton').setAttribute('aria-label', document.getElementById('microphoneButton').title);
+            document.getElementById('microphoneButton').classList.toggle('muted', microphoneMuted);
             document.getElementById('cameraButton').disabled = !voiceActive;
+            document.getElementById('cameraButton').textContent = cameraTrack ? '▣' : '▧';
+            document.getElementById('cameraButton').title = cameraTrack ? 'Kamerayı kapat' : 'Kamerayı aç';
+            document.getElementById('cameraButton').setAttribute('aria-label', document.getElementById('cameraButton').title);
             document.getElementById('screenShareButton').disabled = !voiceActive;
+            document.getElementById('screenShareButton').textContent = screenTrack ? '▣' : '▤';
+            document.getElementById('screenShareButton').title = screenTrack ? 'Ekran paylaşımını durdur' : 'Ekranı paylaş';
+            document.getElementById('screenShareButton').setAttribute('aria-label', document.getElementById('screenShareButton').title);
             document.getElementById('voiceLeaveButton').disabled = !voiceActive;
+            document.getElementById('voiceStageStatus').textContent = voiceJoining
+                ? 'Mikrofon izni bekleniyor...'
+                : voiceActive ? 'Ses kanalına katıldın. Mikrofonun kontrolü sende.' : 'Katılınca burada birlikte konuşabilirsiniz.';
+            updateVoiceParticipantCount();
+            updateLocalGroupTile();
+        }
+
+        function updateVoiceParticipantCount() {
+            const count = groupPeerConnections.size + (voiceActive ? 1 : 0);
+            document.getElementById('voiceParticipantCount').textContent = `${count} kişi`;
+            document.getElementById('voice-empty-state').hidden = count > 0;
         }
 
         async function joinVoiceRoom() {
             if (voiceActive) return;
             if (!voiceSocketReady) {
-                document.getElementById('group-chat-status').textContent = 'Ses odasına katılmadan önce grup bağlantısı kurulmalı.';
+                document.getElementById('voice-chat-status').textContent = 'Ses kanalına katılmadan önce bağlantı kurulmalı.';
                 return;
             }
             voiceJoining = true;
             updateVoiceControls();
-            document.getElementById('group-chat-status').textContent = 'Mikrofon izni bekleniyor...';
+            document.getElementById('voice-chat-status').textContent = 'Mikrofon izni bekleniyor...';
             try {
                 localMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 voiceActive = true;
                 microphoneMuted = false;
                 sendGroupSignal({ type: 'voice-join', peerId: groupPeerId, nick: myNick || 'Kullanıcı' });
                 updateVoiceControls();
-                document.getElementById('group-chat-status').textContent = 'Ses odasına katıldın. Mikrofon izni tarayıcıdan istendi.';
+                document.getElementById('voice-chat-status').textContent = 'Ses kanalına katıldın.';
             } catch (error) {
-                document.getElementById('group-chat-status').textContent = `Mikrofon açılamadı: ${error.message}`;
+                document.getElementById('voice-chat-status').textContent = `Mikrofon açılamadı: ${error.message}`;
             } finally {
                 voiceJoining = false;
                 updateVoiceControls();
@@ -2407,16 +2715,16 @@
                 cameraTrack.stop();
                 cameraTrack = null;
                 if (!screenTrack) await replaceGroupVideoTrack(null);
-                document.getElementById('cameraButton').textContent = '📷 Kamerayı aç';
+                updateVoiceControls();
                 return;
             }
             try {
                 const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
                 cameraTrack = cameraStream.getVideoTracks()[0];
                 if (!screenTrack) await replaceGroupVideoTrack(cameraTrack);
-                document.getElementById('cameraButton').textContent = '📷 Kamerayı kapat';
+                updateVoiceControls();
             } catch (error) {
-                document.getElementById('group-chat-status').textContent = `Kamera açılamadı: ${error.message}`;
+                document.getElementById('voice-chat-status').textContent = `Kamera açılamadı: ${error.message}`;
             }
         }
 
@@ -2432,26 +2740,34 @@
         function updateLocalGroupTile() {
             const grid = document.getElementById('group-media-grid');
             let tile = document.getElementById('local-group-tile');
-            if (!cameraTrack && !screenTrack) {
+            if (!voiceActive) {
                 tile?.remove();
+                updateVoiceParticipantCount();
                 return;
             }
             if (!tile) {
                 tile = document.createElement('div');
                 tile.id = 'local-group-tile';
-                tile.className = 'group-media-tile';
+                tile.className = 'group-media-tile voice-participant-tile';
                 const video = document.createElement('video');
                 video.id = 'local-group-video';
                 video.autoplay = true;
                 video.muted = true;
                 video.playsInline = true;
+                const avatar = document.createElement('div');
+                avatar.className = 'voice-participant-avatar';
+                avatar.textContent = myNick.charAt(0).toLocaleUpperCase('tr') || 'S';
                 const label = document.createElement('span');
                 label.textContent = `${myNick || 'Sen'} (sen)`;
-                tile.append(video, label);
+                tile.append(video, avatar, label);
                 grid.prepend(tile);
             }
             const videoTrack = screenTrack || cameraTrack;
-            tile.querySelector('video').srcObject = videoTrack ? new MediaStream([videoTrack]) : null;
+            const video = tile.querySelector('video');
+            video.srcObject = videoTrack ? new MediaStream([videoTrack]) : null;
+            video.style.display = videoTrack ? 'block' : 'none';
+            tile.querySelector('.voice-participant-avatar').hidden = Boolean(videoTrack);
+            updateVoiceParticipantCount();
         }
 
         async function toggleScreenShare() {
@@ -2464,10 +2780,10 @@
                 const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
                 screenTrack = screenStream.getVideoTracks()[0];
                 await replaceGroupVideoTrack(screenTrack);
-                document.getElementById('screenShareButton').textContent = '🖥️ Paylaşımı durdur';
+                updateVoiceControls();
                 screenTrack.onended = () => stopScreenShare();
             } catch (error) {
-                document.getElementById('group-chat-status').textContent = `Ekran paylaşılamadı: ${error.message}`;
+                document.getElementById('voice-chat-status').textContent = `Ekran paylaşılamadı: ${error.message}`;
             }
         }
 
@@ -2481,7 +2797,7 @@
                 await replaceGroupVideoTrack(cameraTrack);
             }
             else await replaceGroupVideoTrack(null);
-            document.getElementById('screenShareButton').textContent = '🖥️ Ekranı paylaş';
+            updateVoiceControls();
         }
 
         function leaveVoiceRoom() {
@@ -2503,16 +2819,18 @@
             microphoneMuted = false;
             voiceJoining = false;
             document.getElementById('local-group-tile')?.remove();
-            document.getElementById('cameraButton').textContent = '📷 Kamerayı aç';
-            document.getElementById('screenShareButton').textContent = '🖥️ Ekranı paylaş';
             updateVoiceControls();
-            document.getElementById('group-chat-status').textContent = 'Ses odasından ayrıldın.';
+            document.getElementById('voice-chat-status').textContent = 'Ses kanalından ayrıldın.';
         }
 
         function returnToGroups() {
             leaveVoiceRoom();
             activeGroupId = null;
             activeGroup = null;
+            activeGroupChannel = null;
+            document.querySelector('.left-sidebar').classList.remove('group-mode');
+            document.getElementById('tab-Gruplar').classList.remove('group-open');
+            document.getElementById('app-screen').classList.remove('group-workspace-active');
             if (groupSocket) {
                 groupSocket.close();
                 groupSocket = null;
@@ -2522,11 +2840,12 @@
             document.getElementById('groupDetail').style.display = 'none';
             document.getElementById('createGroupForm').style.display = 'flex';
             document.getElementById('groupsList').style.display = '';
+            renderGroupServerRail();
         }
 
         function appendGroupMessage(author, text) {
             const line = document.createElement('div');
-            line.className = 'community-message';
+            line.className = 'group-message-line';
             const name = document.createElement('strong');
             name.textContent = `${author}: `;
             line.append(name, document.createTextNode(text));
@@ -2541,8 +2860,9 @@
             const input = document.getElementById('groupChatInput');
             const text = input.value.trim();
             if (!text) return;
+            if (activeGroupChannel?.kind !== 'text') return;
             if (!groupSocket || groupSocket.readyState !== WebSocket.OPEN) {
-                document.getElementById('group-chat-status').textContent = 'Grup sohbeti bağlantısı hazır değil.';
+                document.getElementById('group-chat-status').textContent = 'Metin kanalına bağlantı kuruluyor...';
                 return;
             }
             groupSocket.send(JSON.stringify({ author: myNick || 'Kullanıcı', text }));

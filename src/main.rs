@@ -321,7 +321,7 @@ struct AppState {
     posts: Mutex<Vec<PostModel>>,
     notifications: Mutex<Vec<NotificationModel>>,
     database: Mutex<Database>,
-    group_channels: Mutex<HashMap<u64, broadcast::Sender<String>>>,
+    group_channels: Mutex<HashMap<String, broadcast::Sender<String>>>,
     tx: broadcast::Sender<String>,
 }
 
@@ -456,6 +456,10 @@ async fn main() {
         // 💬 WEBSOCKET (ANLIK CHAT & MESAJLAR)
         .route("/ws/chat", get(websocket_handler))
         .route("/ws/groups/:group_id", get(group_websocket_handler))
+        .route(
+            "/ws/groups/:group_id/:channel_id",
+            get(group_channel_websocket_handler),
+        )
         .fallback_service(ServeDir::new("Client").append_index_html_on_directories(true))
         .layer(CorsLayer::permissive())
         .with_state(state);
@@ -1456,6 +1460,14 @@ fn can_manage_group_channels(group: &GroupModel, email: &str) -> bool {
             .any(|moderator| moderator == email)
 }
 
+fn group_has_channel(group: &GroupModel, channel_id: &str) -> bool {
+    group
+        .categories
+        .iter()
+        .flat_map(|category| &category.channels)
+        .any(|channel| channel.id == channel_id)
+}
+
 fn can_assign_group_moderators(group: &GroupModel, email: &str) -> bool {
     group.owner_email.as_deref() == Some(email)
 }
@@ -1552,20 +1564,22 @@ async fn add_group_channel(
         ));
     }
     let category_id = category_name.to_lowercase().replace(' ', "-");
-    let category_index = group
+    let category_index = match group
         .categories
         .iter()
-        .position(|category| category.name.eq_ignore_ascii_case(category_name));
-    let category = if let Some(index) = category_index {
-        &mut group.categories[index]
-    } else {
-        group.categories.push(ChannelCategory {
-            id: category_id.clone(),
-            name: category_name.to_string(),
-            channels: Vec::new(),
-        });
-        group.categories.last_mut().expect("kategori eklendi")
+        .position(|category| category.name.eq_ignore_ascii_case(category_name))
+    {
+        Some(index) => index,
+        None => {
+            group.categories.push(ChannelCategory {
+                id: category_id.clone(),
+                name: category_name.to_string(),
+                channels: Vec::new(),
+            });
+            group.categories.len() - 1
+        }
     };
+    let category = &mut group.categories[category_index];
     if category
         .channels
         .iter()
@@ -1577,7 +1591,10 @@ async fn add_group_channel(
         ));
     }
     category.channels.push(GroupChannel {
-        id: format!("{}-{}", category_id, category.channels.len() + 1),
+        id: format!(
+            "group-{group_id}-category-{category_index}-channel-{}",
+            category.channels.len() + 1
+        ),
         name: name.to_string(),
         kind: payload.kind,
     });
@@ -1677,7 +1694,35 @@ async fn group_websocket_handler(
     let tx = {
         let mut channels = state.group_channels.lock().await;
         channels
-            .entry(group_id)
+            .entry(format!("{group_id}:legacy"))
+            .or_insert_with(|| broadcast::channel(100).0)
+            .clone()
+    };
+    Ok(ws.on_upgrade(move |socket| handle_socket(socket, tx)))
+}
+
+async fn group_channel_websocket_handler(
+    Path((group_id, channel_id)): Path<(u64, String)>,
+    ws: WebSocketUpgrade,
+    State(state): State<Arc<AppState>>,
+) -> Result<impl axum::response::IntoResponse, StatusCode> {
+    let channel_exists = state
+        .database
+        .lock()
+        .await
+        .groups
+        .iter()
+        .find(|group| group.id == group_id)
+        .is_some_and(|group| group_has_channel(group, &channel_id));
+    if !channel_exists {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    let channel_key = format!("{group_id}:{channel_id}");
+    let tx = {
+        let mut channels = state.group_channels.lock().await;
+        channels
+            .entry(channel_key)
             .or_insert_with(|| broadcast::channel(100).0)
             .clone()
     };
@@ -1837,6 +1882,15 @@ mod tests {
         assert_eq!(public_json["role"], "founder");
         assert!(public_json.get("owner_email").is_none());
         assert!(public_json.get("moderator_emails").is_none());
+    }
+
+    #[test]
+    fn group_channels_are_resolved_individually_for_channel_scoped_sockets() {
+        let group = default_groups().remove(0);
+
+        assert!(group_has_channel(&group, "general-chat"));
+        assert!(group_has_channel(&group, "voice-room"));
+        assert!(!group_has_channel(&group, "missing-channel"));
     }
 
     #[test]
