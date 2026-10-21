@@ -175,16 +175,50 @@
         .post-time { font-size: 10px; color: #71717a; }
         .post-content { font-size: 13px; color: #d4d4d8; }
 
-        .reels-container { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 20px; overflow-y: auto; height: 100%; scroll-snap-type: y mandatory; }
-        .reel-search { width: min(100%, 520px); display: flex; gap: 8px; }
-        .reel-search input { flex: 1; min-width: 0; background: #16161c; border: 1px solid #26262e; padding: 10px 12px; border-radius: 8px; color: #fff; }
+        .reels-container { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 20px; overflow-y: auto; height: 100%; scroll-snap-type: y mandatory; }
+        .reel-search { width: min(100%, 620px); display: flex; gap: 8px; }
+        .reel-search input { flex: 1; min-width: 0; background: #16161c; border: 1px solid #26262e; padding: 10px 12px; border-radius: 10px; color: #fff; }
+        .youtube-search-results { display: grid; width: min(100%, 820px); grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+        .youtube-result-card { position: relative; overflow: hidden; padding: 0; border: 1px solid #292933; border-radius: 13px; background: #121216; color: #f4f4f5; text-align: left; cursor: pointer; transition: border-color .18s, transform .18s, background .18s; }
+        .youtube-result-card:hover { transform: translateY(-2px); border-color: #804047; }
+        .youtube-result-card[aria-pressed="true"] { border-color: #f0525b; background: #1b1216; box-shadow: 0 0 0 1px rgba(240,82,91,.24); }
+        .youtube-result-card img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #09090c; }
+        .youtube-result-copy { display: grid; gap: 5px; padding: 10px 12px 12px; }
+        .youtube-result-copy strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 13px; line-height: 1.4; }
+        .youtube-result-copy span { color: #a1a1aa; font-size: 11px; }
+        .youtube-result-choice { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #aaaab5; font-size: 11px; }
+        .youtube-result-card[aria-pressed="true"] .youtube-result-choice { color: #ffb2b7; }
+        .youtube-search-toolbar { display: flex; width: min(100%, 820px); align-items: center; justify-content: space-between; gap: 12px; color: #a1a1aa; font-size: 12px; }
+        .youtube-play-selected { min-height: 38px; padding: 9px 13px; border: 1px solid rgba(239,68,68,.28); border-radius: 10px; background: linear-gradient(135deg, #dc2626, #991b1b); color: white; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .youtube-play-selected:disabled { border-color: #2b2b33; background: #1a1a20; color: #777783; cursor: not-allowed; }
+        .reel-add-link { width: min(100%, 620px); padding-top: 12px; border-top: 1px solid #22222a; }
+        .reel-add-link summary { margin-bottom: 10px; color: #b7b7c2; font-size: 12px; font-weight: 650; cursor: pointer; }
+        .reel-add-link .reel-search { width: 100%; }
         .reel-card { width: min(320px, 100%); height: min(480px, 70vh); min-height: 300px; background: #121216; border: 1px solid #26262e; border-radius: 16px; overflow: hidden; scroll-snap-align: start; flex-shrink: 0; }
         .reel-card iframe { width: 100%; height: 100%; border: none; }
-        .community-chat { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
         .community-messages { flex: 1; min-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
         .community-message { padding: 8px 10px; border-radius: 8px; background: #121216; overflow-wrap: anywhere; }
         .community-form { display: flex; gap: 8px; }
         .community-form input { flex: 1; min-width: 0; }
+        .home-community-panel { width: min(100% - 48px, 850px); margin: 0 auto 28px; padding: 14px; border: 1px solid #25252d; border-radius: 15px; background: #111115; }
+        .home-community-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+        .home-community-heading h2 { color: #f4f4f5; font-size: 14px; }
+        .home-community-heading p { margin-top: 3px; color: #888894; font-size: 11px; }
+        .home-community-status { color: #8e8e9a; font-size: 10px; text-align: right; }
+        .home-community-panel .community-messages { max-height: 210px; min-height: 76px; gap: 6px; }
+        .home-community-panel .community-message { padding: 7px 9px; border: 1px solid #22222a; background: #15151b; color: #d7d7df; font-size: 12px; line-height: 1.45; }
+        .home-community-panel .community-form { margin-top: 9px; }
+        .home-community-panel .community-form .auth-input { min-height: 40px; padding-block: 9px; }
+        .home-community-panel .community-form .auth-btn { padding: 8px 13px; }
+        .direct-message-empty { display: grid; flex: 1; place-content: center; justify-items: center; gap: 7px; padding: 18px; border: 1px dashed #30303a; border-radius: 14px; color: #a1a1aa; text-align: center; }
+        .direct-message-empty strong { color: #e4e4e7; font-size: 14px; }
+        .direct-message-empty span { max-width: 320px; font-size: 12px; line-height: 1.5; }
+        .message-composer { display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid #22222a; }
+        .message-composer input { min-height: 42px; }
+        .messages-list { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 7px; overflow-y: auto; margin: 12px 0; padding: 12px; border: 1px solid #22222a; border-radius: 14px; background: #0d0d11; }
+        .message-bubble { max-width: min(78%, 620px); padding: 8px 11px; border: 1px solid #272730; border-radius: 12px 12px 12px 4px; background: #15151b; color: #e4e4e7; font-size: 12px; line-height: 1.45; }
+        .message-bubble.own { align-self: flex-end; border-color: rgba(239,68,68,.2); border-radius: 12px 12px 4px 12px; background: #281519; }
+        .message-bubble strong { display: block; margin-bottom: 3px; color: #ff9da4; font-size: 10px; }
         .group-call-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
         .group-call-controls .auth-btn.active { background: #991b1b; }
         .group-media-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
@@ -204,9 +238,44 @@
         .tab-content.active { display: flex; }
         .mobile-bottom-nav { display: none; }
         .mobile-friends { display: none; }
+        .mobile-menu-overlay { display: none; }
         .group-category { padding: 10px 12px; margin: 8px 0; border-radius: 10px; background: #101014; }
         .group-category-title { color: #a1a1aa; font-size: 11px; font-weight: 700; letter-spacing: .08em; }
         .group-channel { display: inline-flex; margin: 8px 8px 0 0; padding: 6px 9px; border-radius: 8px; background: #1a1a20; color: #e4e4e7; font-size: 12px; }
+        .group-page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+        .group-page-heading h2 { color: #fafafa; font-size: 22px; letter-spacing: -.03em; }
+        .group-page-heading p { margin-top: 5px; color: #92929e; font-size: 12px; }
+        .groups-create-panel { display: flex; gap: 8px; max-width: 760px; margin: 0 0 14px; padding: 10px; border: 1px solid #25252d; border-radius: 13px; background: #111115; }
+        .groups-create-panel .auth-input { min-height: 42px; }
+        .groups-create-panel .auth-btn { flex: 0 0 auto; min-height: 42px; white-space: nowrap; }
+        .groups-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 265px), 1fr)); gap: 10px; width: 100%; padding: 0 0 20px; }
+        .group-card { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 13px; border: 1px solid #25252d; border-radius: 14px; background: linear-gradient(145deg, #131318, #101014); }
+        .group-card-mark { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid rgba(239,68,68,.2); border-radius: 13px; background: rgba(127,29,29,.2); color: #ff989f; font-size: 16px; font-weight: 800; }
+        .group-card-copy { display: grid; min-width: 0; gap: 4px; }
+        .group-card-copy strong { overflow: hidden; color: #f4f4f5; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+        .group-card-copy span { overflow: hidden; color: #92929e; font-size: 10px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+        .group-enter-btn { min-height: 34px; padding: 7px 10px; border: 1px solid #363039; border-radius: 9px; background: #1c171b; color: #f4c9cc; font-size: 11px; font-weight: 650; cursor: pointer; }
+        .group-enter-btn:hover { border-color: rgba(239,68,68,.5); background: #29181d; }
+        .group-detail-back { align-self: flex-start; margin: 0 0 12px; padding: 8px 11px; }
+        .group-detail-title { margin-bottom: 8px; color: #fafafa; font-size: 19px; }
+        .group-chat-composer { display: flex; gap: 8px; padding-top: 9px; border-top: 1px solid #25252d; }
+        .group-chat-composer input { min-height: 42px; }
+        .search-page-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+        .search-page-heading h2 { color: #fafafa; font-size: 20px; letter-spacing: -.025em; }
+        .search-page-heading p { margin-top: 4px; color: #92929e; font-size: 11px; }
+        .search-history-toolbar { display: flex; gap: 8px; max-width: 720px; margin-bottom: 12px; }
+        .search-history-toolbar input { min-height: 40px; }
+        .search-history-clear { flex: 0 0 auto; padding: 8px 11px; border: 1px solid #393039; border-radius: 10px; background: #181419; color: #e8c4c6; font-size: 11px; cursor: pointer; }
+        .search-history-clear:disabled { opacity: .45; cursor: not-allowed; }
+        .search-history-list { display: grid; width: min(100%, 720px); gap: 7px; padding: 0 0 18px; }
+        .search-history-item { display: flex; align-items: center; gap: 9px; padding: 9px 11px; border: 1px solid #24242c; border-radius: 11px; background: #111115; }
+        .search-history-icon { color: #f87171; font-size: 14px; }
+        .search-history-query { flex: 1; min-width: 0; overflow: hidden; border: 0; background: transparent; color: #e4e4e7; font-size: 12px; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+        .search-history-date { flex: 0 0 auto; color: #747480; font-size: 10px; }
+        .search-history-remove { display: grid; width: 28px; height: 28px; flex: 0 0 28px; place-items: center; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #8a8994; font-size: 16px; cursor: pointer; }
+        .search-history-remove:hover { border-color: #3c292d; background: #241619; color: #ff9da4; }
+        .search-history-empty { padding: 18px; border: 1px dashed #30303a; border-radius: 12px; color: #92929e; font-size: 12px; text-align: center; }
+        .left-icon svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
         .group-admin-tools { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 0; }
         .group-admin-tools input, .group-admin-tools select { min-width: 130px; flex: 1; }
         .pull-refresh-indicator { display: none; text-align: center; color: #a1a1aa; font-size: 12px; padding: 8px; }
@@ -223,7 +292,6 @@
             .mobile-friend-button { flex: 0 0 auto; border: 1px solid #292932; background: #15151b; border-radius: 999px; color: #e4e4e7; padding: 8px 12px; }
             #tab-Mesaj h3 { font-size: 15px; }
             #messagesBox { min-height: 120px; }
-            .community-chat { min-height: 220px; }
             #createGroupForm { flex-wrap: wrap; }
             #createGroupForm input { min-width: 0; flex: 1; }
             .feed-stream { padding: 14px; }
@@ -480,6 +548,64 @@
         @media (max-width: 720px) {
             .far-left-bar, .left-sidebar { display: none; }
         }
+        .far-left-bar { gap: 10px; padding-top: 16px; }
+        .left-icon { width: 42px; height: 42px; color: #9797a4; }
+        .left-icon.active { color: #ffb0b5; }
+        .right-menu-panel::before { padding: 0 8px 6px; color: #777783; content: "MENÜ"; font-size: 10px; font-weight: 800; letter-spacing: .16em; }
+        .right-menu-panel { gap: 7px; }
+        .menu-btn { min-height: 44px; padding: 9px 11px; border-radius: 11px; font-size: 12px; }
+        .menu-btn-icon { display: grid; width: 28px; height: 28px; flex: 0 0 28px; place-items: center; border: 1px solid #2a252c; border-radius: 9px; background: #17151a; font-size: 14px; }
+        .menu-btn.active .menu-btn-icon { border-color: rgba(239,68,68,.22); background: rgba(127,29,29,.28); }
+        .menu-btn > span:last-child { color: #686873; font-size: 17px; transition: transform .18s, color .18s; }
+        .menu-btn:hover > span:last-child, .menu-btn.active > span:last-child { transform: translateX(2px); color: #ff9da4; }
+        .menu-btn.logout { margin-top: auto; }
+        #tab-Mesaj { gap: 0; }
+        #tab-Mesaj > h3 { color: #f4f4f5; font-size: 17px; letter-spacing: -.02em; }
+        #tab-Mesaj #direct-message-status { min-height: 0; }
+        #tab-Gruplar, #tab-Arama { min-height: 0; overflow-y: auto; }
+        #group-chat-messages { flex: 1; }
+        @media (max-width: 720px) {
+            .home-community-panel { width: calc(100% - 28px); margin-bottom: 20px; padding: 11px; }
+            .home-community-panel .community-messages { max-height: 170px; }
+            .group-page-heading { align-items: flex-start; margin-bottom: 10px; }
+            .group-page-heading h2 { font-size: 19px; }
+            .group-page-heading p { max-width: 270px; line-height: 1.45; }
+            .groups-create-panel { margin-bottom: 10px; padding: 8px; }
+            .groups-create-panel .auth-btn { flex: 0 0 auto; padding-inline: 10px; font-size: 11px; }
+            .groups-grid { grid-template-columns: minmax(0, 1fr); }
+            .group-card { grid-template-columns: 38px minmax(0, 1fr) auto; gap: 9px; padding: 10px; }
+            .group-card-mark { width: 38px; height: 38px; }
+            .group-enter-btn { padding-inline: 9px; }
+            .search-page-heading h2 { font-size: 18px; }
+            .search-history-toolbar { margin-bottom: 9px; }
+            .search-history-item { gap: 7px; padding: 8px; }
+            .search-history-date { display: none; }
+            .reels-container { gap: 11px; }
+            .reel-search { gap: 6px; }
+            .reel-search input { padding: 10px; font-size: 12px; }
+            .reel-search .auth-btn { flex: 0 0 auto; padding: 9px 11px; font-size: 12px; }
+            .youtube-search-results { grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 8px; }
+            .youtube-result-copy { gap: 4px; padding: 8px; }
+            .youtube-result-copy strong { font-size: 11px; }
+            .youtube-result-copy span { font-size: 10px; }
+            .youtube-search-toolbar { align-items: flex-start; font-size: 11px; }
+            .youtube-play-selected { flex: 0 0 auto; padding: 8px 10px; font-size: 10px; }
+            .reel-add-link { padding-top: 9px; }
+            .messages-list { margin: 10px 0; padding: 9px; }
+            .message-composer { padding-top: 8px; }
+            .mobile-bottom-nav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+            .mobile-nav-button { min-width: 0; font-size: 10px; }
+            .mobile-menu-overlay { position: fixed; z-index: 99; inset: 0 0 calc(68px + env(safe-area-inset-bottom)); display: none; align-items: flex-end; justify-content: center; padding: 12px; background: linear-gradient(180deg, transparent 15%, rgba(0,0,0,.72)); }
+            .mobile-menu-overlay.open { display: flex; }
+            .mobile-menu-sheet { width: min(100%, 440px); padding: 14px; border: 1px solid #30303a; border-radius: 18px; background: #111115; box-shadow: 0 18px 55px rgba(0,0,0,.45); }
+            .mobile-menu-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+            .mobile-menu-heading h2 { color: #f4f4f5; font-size: 14px; }
+            .mobile-menu-heading button { width: 30px; height: 30px; border: 1px solid #2b2b34; border-radius: 9px; background: #18181e; color: #b7b7c2; font-size: 18px; }
+            .mobile-menu-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+            .mobile-menu-item { display: flex; min-height: 44px; align-items: center; gap: 9px; padding: 8px 10px; border: 1px solid #272730; border-radius: 11px; background: #15151b; color: #d8d8e0; font-size: 11px; text-align: left; }
+            .mobile-menu-item span:first-child { display: grid; width: 25px; height: 25px; flex: 0 0 25px; place-items: center; border-radius: 8px; background: #20181d; color: #ff9da4; }
+            .mobile-menu-item.logout { border-color: rgba(239,68,68,.2); color: #ffb0b5; }
+        }
     </style>
 </head>
 <body>
@@ -643,9 +769,9 @@
 
         <div class="far-left-bar">
             <div class="brand-logo" aria-label="RustCord">⚡</div>
-            <button class="left-icon active" type="button" id="icon-Ev" aria-label="Ana sayfa" title="Ana sayfa" onclick="switchTab('Ev')">🏠</button>
-            <button class="left-icon" type="button" id="icon-Mesaj" aria-label="Mesajlar" title="Mesajlar" onclick="switchTab('Mesaj')">💬</button>
-            <button class="left-icon" type="button" id="icon-Bildirim" aria-label="Bildirimler" title="Bildirimler" onclick="switchTab('Bildirim')">🔔</button>
+            <button class="left-icon active" type="button" id="icon-Ev" aria-label="Ana sayfa" title="Ana sayfa" onclick="switchTab('Ev')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg></button>
+            <button class="left-icon" type="button" id="icon-Mesaj" aria-label="Mesajlar" title="Mesajlar" onclick="switchTab('Mesaj')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 9 9 0 0 1-4-.9L4 20l1.2-3.2A7 7 0 0 1 4 12c0-4.1 3.6-7.5 8-7.5s8 3.1 8 7z"></path><path d="M8 11h8M8 14h5"></path></svg></button>
+            <button class="left-icon" type="button" id="icon-Bildirim" aria-label="Bildirimler" title="Bildirimler" onclick="switchTab('Bildirim')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"></path></svg></button>
         </div>
 
         <div class="left-sidebar">
@@ -710,41 +836,51 @@
                     <button class="send-post-btn" onclick="publishPost()">➤</button>
                 </div>
                 <div class="feed-stream" id="feedStream"></div>
+                <section class="home-community-panel" aria-labelledby="communityHeading">
+                    <div class="home-community-heading">
+                        <div>
+                            <h2 id="communityHeading">🌐 Topluluk sohbeti</h2>
+                            <p>Herkesin katılabildiği ortak sohbet</p>
+                        </div>
+                        <div id="community-status" class="home-community-status" role="status"></div>
+                    </div>
+                    <div id="communityMessages" class="community-messages" aria-live="polite"></div>
+                    <form class="community-form" onsubmit="sendCommunityMessage(event)">
+                        <input id="communityInput" class="auth-input" maxlength="500" placeholder="Topluluğa mesaj yaz..." aria-label="Topluluğa mesaj yaz" required>
+                        <button class="auth-btn" type="submit">Gönder</button>
+                    </form>
+                </section>
             </div>
 
             <div id="tab-Mesaj" class="tab-content" style="padding:20px;">
-                <h3 id="chatTitle">💬 Sohbet / Özel Mesaj</h3>
+                <h3 id="chatTitle">💬 Özel mesajlar</h3>
                 <div id="mobileFriendsList" class="mobile-friends" aria-label="Arkadaşların"></div>
-                <div id="messagesBox" style="flex:1; margin-top:15px; display:flex; flex-direction:column; gap:10px; overflow-y:auto;">
-                    <div class="user-status">Özel mesajlaşmak için sol taraftan bir arkadaş seç.</div>
+                <div id="messagesBox" class="messages-list">
+                    <div class="direct-message-empty"><strong>Özel sohbetini seç</strong><span>Bir arkadaşına ait konuşmayı açmak için soldaki arkadaş listesinden birini seç.</span></div>
                 </div>
-                <form class="community-form" onsubmit="sendDirectMessage(event)">
+                <form class="message-composer" onsubmit="sendDirectMessage(event)">
                     <input id="directMessageInput" class="auth-input" maxlength="2000" placeholder="Özel mesaj yaz..." disabled required>
                     <button class="auth-btn" type="submit">Gönder</button>
                 </form>
                 <div id="direct-message-status" class="status-message" role="status"></div>
-                <h3 style="margin:16px 0 8px;">🌐 Topluluk Sohbeti</h3>
-                <div class="community-chat">
-                    <div id="communityMessages" class="community-messages" aria-live="polite"></div>
-                    <form class="community-form" onsubmit="sendCommunityMessage(event)">
-                        <input id="communityInput" class="auth-input" maxlength="500" placeholder="Herkese açık mesaj yaz..." required>
-                        <button class="auth-btn" type="submit">Gönder</button>
-                    </form>
-                    <div id="community-status" class="status-message" role="status"></div>
-                </div>
             </div>
 
             <div id="tab-Gruplar" class="tab-content" style="padding:20px;">
-                <h2>👥 Gruplar ve Topluluklar</h2>
-                <form id="createGroupForm" onsubmit="createGroup(event)" style="display:flex;gap:8px;margin:16px 0;">
-                    <input id="newGroupName" class="auth-input" maxlength="60" placeholder="Yeni topluluk adı" required>
-                    <button class="auth-btn" type="submit">Topluluk Oluştur</button>
+                <div class="group-page-heading">
+                    <div>
+                        <h2>Grupların</h2>
+                        <p>Arkadaşlarınla bir araya gel, ortak sohbet ve odalar oluştur.</p>
+                    </div>
+                </div>
+                <form id="createGroupForm" class="groups-create-panel" onsubmit="createGroup(event)">
+                    <input id="newGroupName" class="auth-input" maxlength="60" placeholder="Yeni grup adı" aria-label="Yeni grup adı" required>
+                    <button class="auth-btn" type="submit">＋ Grup oluştur</button>
                 </form>
-                <div id="groupsList" class="feed-stream" style="padding:0;"></div>
+                <div id="groupsList" class="groups-grid"></div>
                 <div id="groups-status" class="status-message" role="status"></div>
                 <section id="groupDetail" style="display:none;flex:1;min-height:0;flex-direction:column;">
-                    <button class="auth-btn" type="button" style="align-self:flex-start;margin:12px 0;" onclick="returnToGroups()">← Gruplara dön</button>
-                    <h3 id="groupTitle"></h3>
+                    <button class="auth-btn group-detail-back" type="button" onclick="returnToGroups()">← Gruplara dön</button>
+                    <h3 id="groupTitle" class="group-detail-title"></h3>
                     <div id="groupCategories"></div>
                     <div id="groupAdminTools" class="group-admin-tools" style="display:none;">
                         <form id="addGroupChannelForm" class="group-admin-tools" style="flex:1;margin:0;" onsubmit="addGroupChannel(event)">
@@ -770,8 +906,8 @@
                         <button id="voiceLeaveButton" class="auth-btn" type="button" onclick="leaveVoiceRoom()" disabled>📴 Odadan ayrıl</button>
                     </div>
                     <div id="group-media-grid" class="group-media-grid" aria-label="Ses odası katılımcıları"></div>
-                    <div id="group-chat-messages" class="community-messages" aria-live="polite" style="min-height:180px;"></div>
-                    <form class="community-form" onsubmit="sendGroupMessage(event)">
+                    <div id="group-chat-messages" class="community-messages" aria-live="polite" style="min-height:120px;"></div>
+                    <form class="group-chat-composer" onsubmit="sendGroupMessage(event)">
                         <input id="groupChatInput" class="auth-input" maxlength="500" placeholder="Gruba mesaj yaz..." required>
                         <button class="auth-btn" type="submit">Gönder</button>
                     </form>
@@ -780,21 +916,40 @@
             </div>
 
             <div id="tab-Arama" class="tab-content" style="padding:20px;">
-                <h2>🕒 Arama Geçmişi</h2>
-                <div id="searchHistory" class="feed-stream"></div>
+                <div class="search-page-heading">
+                    <div>
+                        <h2>Arama geçmişi</h2>
+                        <p>Önceki YouTube aramalarına hızlıca dön.</p>
+                    </div>
+                    <button id="clearSearchHistoryButton" class="search-history-clear" type="button" onclick="clearSearchHistory()">Geçmişi temizle</button>
+                </div>
+                <div class="search-history-toolbar">
+                    <input id="searchHistoryFilter" class="auth-input" type="search" placeholder="Geçmişte ara..." aria-label="Arama geçmişinde ara" oninput="renderSearchHistory()">
+                </div>
+                <div id="searchHistory" class="search-history-list"></div>
             </div>
 
             <div id="tab-Reels" class="tab-content">
                 <div class="reels-container">
-                    <h2 style="color: #ef4444; font-size: 18px; margin-top: 10px;">🎬 Reels & Kısa Videolar</h2>
+                    <h2 style="color: #ef4444; font-size: 18px; margin-top: 4px;">🎬 Video keşfet</h2>
+                    <div style="color:#92929e;font-size:12px;text-align:center;">Ara, izlemek istediğin videoyu seç ve burada oynat.</div>
                     <form class="reel-search" onsubmit="searchYouTube(event)">
                         <input id="youtubeSearch" type="search" placeholder="YouTube'da video ara..." aria-label="YouTube'da video ara">
-                        <button class="auth-btn" type="submit">Ara</button>
+                        <button id="youtubeSearchButton" class="auth-btn" type="submit">Sitede ara</button>
                     </form>
-                    <form class="reel-search" onsubmit="addReel(event)">
-                        <input id="youtubeVideoUrl" type="url" placeholder="YouTube video bağlantısını buraya ekle" aria-label="YouTube video bağlantısı">
-                        <button class="auth-btn" type="submit">Reels'e ekle</button>
-                    </form>
+                    <div id="youtube-search-status" class="status-message" role="status" aria-live="polite"></div>
+                    <div class="youtube-search-toolbar">
+                        <span id="youtubeSelectionLabel">Arama sonuçları burada görünecek.</span>
+                        <button id="youtubePlaySelected" class="youtube-play-selected" type="button" onclick="playSelectedYouTubeVideo()" disabled>Seçili videoyu izle</button>
+                    </div>
+                    <div id="youtubeSearchResults" class="youtube-search-results"></div>
+                    <details class="reel-add-link">
+                        <summary>Bağlantı kullanarak video aç</summary>
+                        <form class="reel-search" onsubmit="addReel(event)">
+                            <input id="youtubeVideoUrl" type="url" placeholder="YouTube video veya Shorts bağlantısı" aria-label="YouTube video bağlantısı">
+                            <button class="auth-btn" type="submit">Bağlantıyı aç</button>
+                        </form>
+                    </details>
                     <div id="reelsList" style="display:contents;"></div>
                     <div id="reels-status" class="status-message" role="status"></div>
                 </div>
@@ -841,11 +996,27 @@
             </div>
         </div>
         <nav class="mobile-bottom-nav" aria-label="Mobil gezinme">
-            <button class="mobile-nav-button active" data-tab="Ev" onclick="switchTab('Ev')"><span>🏠</span>Hikâyeler</button>
+            <button class="mobile-nav-button active" data-tab="Ev" onclick="switchTab('Ev')"><span>🏠</span>Ev</button>
             <button class="mobile-nav-button" data-tab="Mesaj" onclick="switchTab('Mesaj')"><span>💬</span>DM</button>
             <button class="mobile-nav-button" data-tab="Gruplar" onclick="switchTab('Gruplar')"><span>👥</span>Odalar</button>
-            <button class="mobile-nav-button" onclick="openSettings()"><span>👤</span>Profil</button>
+            <button class="mobile-nav-button" data-tab="Reels" onclick="switchTab('Reels')"><span>🎬</span>Videolar</button>
+            <button id="mobileMoreButton" class="mobile-nav-button" type="button" aria-expanded="false" aria-controls="mobileMenuOverlay" onclick="toggleMobileMenu()"><span>•••</span>Daha</button>
         </nav>
+        <div id="mobileMenuOverlay" class="mobile-menu-overlay" onclick="if(event.target === this) closeMobileMenu()">
+            <nav class="mobile-menu-sheet" aria-label="Diğer gezinme seçenekleri">
+                <div class="mobile-menu-heading">
+                    <h2>Kısayollar</h2>
+                    <button type="button" aria-label="Menüyü kapat" onclick="closeMobileMenu()">×</button>
+                </div>
+                <div class="mobile-menu-grid">
+                    <button class="mobile-menu-item" type="button" onclick="switchTab('Arama')"><span>🕒</span>Arama geçmişi</button>
+                    <button class="mobile-menu-item" type="button" onclick="switchTab('Bildirim')"><span>🔔</span>Haberler</button>
+                    <button class="mobile-menu-item" type="button" onclick="closeMobileMenu();openModal('friend-modal')"><span>＋</span>Arkadaş ekle</button>
+                    <button class="mobile-menu-item" type="button" onclick="closeMobileMenu();openSettings()"><span>👤</span>Profil ve ayarlar</button>
+                    <button class="mobile-menu-item logout" type="button" onclick="closeMobileMenu();handleLogout()"><span>↪</span>Çıkış yap</button>
+                </div>
+            </nav>
+        </div>
 
     </div>
 
@@ -1090,6 +1261,7 @@
         const groupPeerConnections = new Map();
         let reels = [];
         let searchHistory = [];
+        let selectedYouTubeVideo = null;
         let emailVisible = true;
         let friendRequests = [];
         let selectedDmNick = '';
@@ -1385,11 +1557,26 @@
             document.querySelectorAll('.mobile-nav-button[data-tab]').forEach(button => {
                 button.classList.toggle('active', button.dataset.tab === tabName);
             });
+            closeMobileMenu();
+            if (tabName === 'Ev') connectCommunityChat();
             if (tabName === 'Mesaj') {
-                connectCommunityChat();
                 if (selectedDmNick) loadDirectMessages();
             }
             if (tabName === 'Gruplar') loadGroups();
+        }
+
+        function toggleMobileMenu() {
+            const isOpen = document.getElementById('mobileMenuOverlay').classList.toggle('open');
+            const button = document.getElementById('mobileMoreButton');
+            button.setAttribute('aria-expanded', String(isOpen));
+            button.classList.toggle('active', isOpen);
+        }
+
+        function closeMobileMenu() {
+            document.getElementById('mobileMenuOverlay').classList.remove('open');
+            const button = document.getElementById('mobileMoreButton');
+            button.setAttribute('aria-expanded', 'false');
+            button.classList.remove('active');
         }
 
         function switchSettingsSection(section) {
@@ -1400,6 +1587,7 @@
         }
 
         function openSettings() {
+            closeMobileMenu();
             switchSettingsSection('account');
             document.getElementById('settings-screen').style.display = 'flex';
         }
@@ -1779,6 +1967,7 @@
             name.textContent = `${author}: `;
             line.append(name, document.createTextNode(text));
             container.appendChild(line);
+            while (container.childElementCount > 100) container.firstElementChild.remove();
             container.scrollTop = container.scrollHeight;
         }
 
@@ -1814,11 +2003,12 @@
                 box.replaceChildren();
                 messages.forEach(message => {
                     const bubble = document.createElement('div');
-                    bubble.className = 'community-message';
-                    if (message.from_nick === myNick) bubble.style.alignSelf = 'flex-end';
+                    bubble.className = `message-bubble${message.from_nick === myNick ? ' own' : ''}`;
                     const author = document.createElement('strong');
-                    author.textContent = `${message.from_nick}: `;
-                    bubble.append(author, document.createTextNode(message.text));
+                    author.textContent = message.from_nick;
+                    const content = document.createElement('span');
+                    content.textContent = message.text;
+                    bubble.append(author, content);
                     let touchStartX = null;
                     bubble.addEventListener('touchstart', event => {
                         touchStartX = event.touches[0].clientX;
@@ -1837,8 +2027,12 @@
                 });
                 if (!messages.length) {
                     const empty = document.createElement('div');
-                    empty.className = 'user-status';
-                    empty.textContent = `${nick} ile henüz mesajınız yok.`;
+                    empty.className = 'direct-message-empty';
+                    const title = document.createElement('strong');
+                    title.textContent = 'Sohbet başladı';
+                    const description = document.createElement('span');
+                    description.textContent = `${nick} ile ilk mesajınızı gönderin.`;
+                    empty.append(title, description);
                     box.appendChild(empty);
                 }
                 box.scrollTop = box.scrollHeight;
@@ -1873,20 +2067,32 @@
                 list.replaceChildren();
                 groups.forEach(group => {
                     const card = document.createElement('div');
-                    card.className = 'post-card';
+                    card.className = 'group-card';
+                    const mark = document.createElement('div');
+                    mark.className = 'group-card-mark';
+                    mark.textContent = group.name.charAt(0).toLocaleUpperCase('tr');
+                    const copy = document.createElement('div');
+                    copy.className = 'group-card-copy';
                     const name = document.createElement('strong');
                     name.textContent = group.name;
                     const count = document.createElement('span');
-                    count.className = 'post-time';
                     count.textContent = `${group.members_count} üye · Kurucu: ${group.owner} · ${group.role === 'founder' ? 'Kurucu' : group.role === 'moderator' ? 'Moderatör' : 'Üye'}`;
                     const enter = document.createElement('button');
-                    enter.className = 'auth-btn';
+                    enter.className = 'group-enter-btn';
                     enter.type = 'button';
-                    enter.textContent = 'Gruba gir';
+                    enter.textContent = 'Aç';
+                    enter.setAttribute('aria-label', `${group.name} grubunu aç`);
                     enter.addEventListener('click', () => openGroup(group));
-                    card.append(name, count, enter);
+                    copy.append(name, count);
+                    card.append(mark, copy, enter);
                     list.appendChild(card);
                 });
+                if (!groups.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'search-history-empty';
+                    empty.textContent = 'Henüz bir grubun yok. İlk grubunu oluşturarak başlayabilirsin.';
+                    list.appendChild(empty);
+                }
                 status.textContent = '';
             } catch (error) {
                 status.textContent = error.message;
@@ -2326,6 +2532,7 @@
             line.append(name, document.createTextNode(text));
             const container = document.getElementById('group-chat-messages');
             container.appendChild(line);
+            while (container.childElementCount > 100) container.firstElementChild.remove();
             container.scrollTop = container.scrollHeight;
         }
 
@@ -2359,31 +2566,144 @@
             }
         }
 
-        function searchYouTube(event) {
-            event.preventDefault();
+        async function searchYouTube(event) {
+            event?.preventDefault();
             const input = document.getElementById('youtubeSearch');
             const query = input.value.trim();
             if (!query) return;
-            searchHistory.unshift({ query, createdAt: Date.now() });
+            const normalizedQuery = query.toLocaleLowerCase('tr');
+            searchHistory = [
+                { query, createdAt: Date.now() },
+                ...searchHistory.filter(entry => entry.query.toLocaleLowerCase('tr') !== normalizedQuery)
+            ];
             searchHistory = searchHistory.slice(0, 30);
             localStorage.setItem('rustcord_search_history', JSON.stringify(searchHistory));
             renderSearchHistory();
-            window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`, '_blank', 'noopener,noreferrer');
+            const status = document.getElementById('youtube-search-status');
+            const button = document.getElementById('youtubeSearchButton');
+            const results = document.getElementById('youtubeSearchResults');
+            const selectionLabel = document.getElementById('youtubeSelectionLabel');
+            const playButton = document.getElementById('youtubePlaySelected');
+            selectedYouTubeVideo = null;
+            playButton.disabled = true;
+            selectionLabel.textContent = 'Arama sonuçları yükleniyor...';
+            button.disabled = true;
+            status.textContent = 'YouTube videoları aranıyor...';
+            results.replaceChildren();
+            try {
+                const videos = await apiRequest(`/api/youtube/search?q=${encodeURIComponent(query)}`);
+                videos.forEach(video => {
+                    const card = document.createElement('button');
+                    card.type = 'button';
+                    card.className = 'youtube-result-card';
+                    card.setAttribute('aria-pressed', 'false');
+                    const thumbnail = document.createElement('img');
+                    thumbnail.src = video.thumbnail_url;
+                    thumbnail.alt = '';
+                    thumbnail.loading = 'lazy';
+                    const copy = document.createElement('span');
+                    copy.className = 'youtube-result-copy';
+                    const title = document.createElement('strong');
+                    title.textContent = video.title;
+                    const channel = document.createElement('span');
+                    channel.textContent = video.channel_title;
+                    const choice = document.createElement('span');
+                    choice.className = 'youtube-result-choice';
+                    choice.textContent = '＋ Videoyu seç';
+                    copy.append(title, channel, choice);
+                    card.append(thumbnail, copy);
+                    card.addEventListener('click', () => selectYouTubeVideo(video, card));
+                    results.appendChild(card);
+                });
+                status.textContent = videos.length ? `${videos.length} sonuç bulundu. İzlemek istediğin videoyu seç.` : 'Bu aramayla eşleşen video bulunamadı.';
+                selectionLabel.textContent = videos.length ? 'Bir sonuç seçerek oynatıcıda açabilirsin.' : 'Sonuç bulunamadı.';
+            } catch (error) {
+                status.textContent = error.message;
+                selectionLabel.textContent = 'Video seçmek için önce arama yap.';
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        function selectYouTubeVideo(video, selectedCard) {
+            selectedYouTubeVideo = video;
+            document.querySelectorAll('.youtube-result-card').forEach(card => {
+                const isSelected = card === selectedCard;
+                card.setAttribute('aria-pressed', String(isSelected));
+                const choice = card.querySelector('.youtube-result-choice');
+                if (choice) choice.textContent = isSelected ? '✓ Seçildi' : '＋ Videoyu seç';
+            });
+            document.getElementById('youtubeSelectionLabel').textContent = `Seçilen: ${video.title}`;
+            document.getElementById('youtubePlaySelected').disabled = false;
+        }
+
+        function playSelectedYouTubeVideo() {
+            if (!selectedYouTubeVideo) return;
+            playYouTubeVideo(selectedYouTubeVideo.id);
         }
 
         function renderSearchHistory() {
             const container = document.getElementById('searchHistory');
             if (!container) return;
             container.replaceChildren();
-            searchHistory.forEach(entry => {
-                const link = document.createElement('a');
-                link.className = 'post-card';
-                link.href = `https://www.youtube.com/results?search_query=${encodeURIComponent(entry.query)}`;
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
-                link.textContent = entry.query;
-                container.appendChild(link);
+            const filter = document.getElementById('searchHistoryFilter')?.value.trim().toLocaleLowerCase('tr') || '';
+            const entries = searchHistory
+                .map((entry, index) => ({ entry, index }))
+                .filter(({ entry }) => entry.query.toLocaleLowerCase('tr').includes(filter));
+            if (!entries.length) {
+                const empty = document.createElement('div');
+                empty.className = 'search-history-empty';
+                empty.textContent = searchHistory.length
+                    ? 'Bu aramayla eşleşen geçmiş kaydı yok.'
+                    : 'Arama yaptıkça geçmişin burada görünecek.';
+                container.appendChild(empty);
+            }
+            entries.forEach(({ entry, index }) => {
+                const row = document.createElement('div');
+                row.className = 'search-history-item';
+                const icon = document.createElement('span');
+                icon.className = 'search-history-icon';
+                icon.textContent = '⌕';
+                const searchButton = document.createElement('button');
+                searchButton.type = 'button';
+                searchButton.className = 'search-history-query';
+                searchButton.textContent = entry.query;
+                searchButton.title = `“${entry.query}” aramasını yeniden yap`;
+                searchButton.addEventListener('click', () => {
+                    document.getElementById('youtubeSearch').value = entry.query;
+                    switchTab('Reels');
+                    void searchYouTube();
+                });
+                const timestamp = Number(entry.createdAt);
+                let date = null;
+                if (Number.isFinite(timestamp) && timestamp > 0 && timestamp <= 8640000000000000) {
+                    date = document.createElement('time');
+                    date.className = 'search-history-date';
+                    date.textContent = new Date(timestamp).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+                }
+                const removeButton = document.createElement('button');
+                removeButton.type = 'button';
+                removeButton.className = 'search-history-remove';
+                removeButton.textContent = '×';
+                removeButton.setAttribute('aria-label', `${entry.query} aramasını geçmişten kaldır`);
+                removeButton.addEventListener('click', () => {
+                    searchHistory.splice(index, 1);
+                    localStorage.setItem('rustcord_search_history', JSON.stringify(searchHistory));
+                    renderSearchHistory();
+                });
+                row.append(icon, searchButton);
+                if (date) row.appendChild(date);
+                row.appendChild(removeButton);
+                container.appendChild(row);
             });
+            const clearButton = document.getElementById('clearSearchHistoryButton');
+            if (clearButton) clearButton.disabled = searchHistory.length === 0;
+        }
+
+        function clearSearchHistory() {
+            searchHistory = [];
+            localStorage.setItem('rustcord_search_history', JSON.stringify(searchHistory));
+            renderSearchHistory();
         }
 
         function extractYouTubeId(value) {
@@ -2415,6 +2735,14 @@
             input.value = '';
             status.textContent = '';
             renderReels();
+            document.getElementById('reelsList').lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function playYouTubeVideo(videoId) {
+            if (!reels.includes(videoId)) reels.push(videoId);
+            localStorage.setItem('rustcord_reels', JSON.stringify(reels));
+            renderReels();
+            document.getElementById('reelsList').lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
         function renderReels() {
@@ -2425,16 +2753,18 @@
                 const card = document.createElement('div');
                 card.className = 'reel-card';
                 const frame = document.createElement('iframe');
-                const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}`);
+                const embedUrl = new URL(`https://www.youtube.com/embed/${encodeURIComponent(videoId)}`);
+                embedUrl.searchParams.set('playsinline', '1');
+                embedUrl.searchParams.set('rel', '0');
                 if (['http:', 'https:'].includes(window.location.protocol)) {
                     embedUrl.searchParams.set('origin', window.location.origin);
                 }
-                frame.src = embedUrl.toString();
                 frame.title = 'YouTube kısa video';
                 frame.referrerPolicy = 'strict-origin-when-cross-origin';
                 frame.loading = 'lazy';
                 frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
                 frame.allowFullscreen = true;
+                frame.src = embedUrl.toString();
                 card.appendChild(frame);
                 list.appendChild(card);
             });

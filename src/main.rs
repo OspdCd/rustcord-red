@@ -8,7 +8,7 @@ use axum::{
         Path, Query, State,
         ws::{Message, WebSocket, WebSocketUpgrade},
     },
-    http::{HeaderMap, StatusCode},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
     routing::{delete, get, post},
 };
 use futures_util::{SinkExt, StreamExt};
@@ -18,6 +18,7 @@ use std::{
     env, fs,
     io::ErrorKind,
     net::SocketAddr,
+    path::PathBuf,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -101,6 +102,58 @@ struct AddGroupChannelPayload {
 #[derive(Deserialize)]
 struct AssignGroupModeratorPayload {
     nick: String,
+}
+
+#[derive(Deserialize)]
+struct YouTubeSearchQuery {
+    q: String,
+}
+
+#[derive(Deserialize)]
+struct YouTubeSearchResponse {
+    items: Vec<YouTubeSearchItem>,
+}
+
+#[derive(Deserialize)]
+struct YouTubeSearchItem {
+    id: YouTubeSearchId,
+    snippet: YouTubeSnippet,
+}
+
+#[derive(Deserialize)]
+struct YouTubeSearchId {
+    #[serde(rename = "videoId")]
+    video_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct YouTubeSnippet {
+    title: String,
+    description: String,
+    #[serde(rename = "channelTitle")]
+    channel_title: String,
+    thumbnails: YouTubeThumbnails,
+}
+
+#[derive(Deserialize)]
+struct YouTubeThumbnails {
+    high: Option<YouTubeThumbnail>,
+    medium: Option<YouTubeThumbnail>,
+    default: Option<YouTubeThumbnail>,
+}
+
+#[derive(Deserialize)]
+struct YouTubeThumbnail {
+    url: String,
+}
+
+#[derive(Serialize)]
+struct YouTubeVideo {
+    id: String,
+    title: String,
+    description: String,
+    channel_title: String,
+    thumbnail_url: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -384,6 +437,7 @@ async fn main() {
         .route("/api/auth", post(authenticate))
         .route("/api/auth/me", get(get_session_user))
         .route("/api/auth/logout", post(logout))
+        .route("/api/youtube/search", get(search_youtube_videos))
         .route("/api/auth/password", post(change_password))
         .route("/api/auth/nickname", post(change_nickname))
         .route("/api/auth/deactivate", post(deactivate_account))
@@ -430,6 +484,98 @@ async fn get_turnstile_config() -> Json<TurnstileConfig> {
         enabled: site_key.is_some() && has_secret,
         site_key,
     })
+}
+
+async fn search_youtube_videos(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<YouTubeSearchQuery>,
+) -> Result<Json<Vec<YouTubeVideo>>, (StatusCode, String)> {
+    get_authenticated_email(&headers, &state).await?;
+    let search_term = query.q.trim();
+    if search_term.is_empty() || search_term.chars().count() > 120 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Arama sözü 1-120 karakter olmalı.".into(),
+        ));
+    }
+    let api_key = env::var("YOUTUBE_API_KEY")
+        .ok()
+        .filter(|key| !key.trim().is_empty())
+        .ok_or_else(|| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Uygulama içi YouTube araması için sunucuda YOUTUBE_API_KEY ayarlanmalı. Video bağlantısını ekleyerek izleyebilirsin.".into(),
+            )
+        })?;
+    let response = reqwest::Client::new()
+        .get("https://www.googleapis.com/youtube/v3/search")
+        .query(&[
+            ("part", "snippet"),
+            ("type", "video"),
+            ("maxResults", "12"),
+            ("q", search_term),
+            ("key", api_key.as_str()),
+        ])
+        .send()
+        .await
+        .map_err(|error| {
+            eprintln!(
+                "YouTube arama servisine ulaşılamadı (timeout={}, connect={}).",
+                error.is_timeout(),
+                error.is_connect()
+            );
+            (
+                StatusCode::BAD_GATEWAY,
+                "YouTube arama servisine şu anda ulaşılamıyor.".into(),
+            )
+        })?;
+    if !response.status().is_success() {
+        eprintln!("YouTube araması HTTP {} yanıtı verdi.", response.status());
+        return Err((
+            StatusCode::BAD_GATEWAY,
+            "YouTube araması başarısız oldu. API anahtarını ve kotanı kontrol et.".into(),
+        ));
+    }
+    let response = response
+        .json::<YouTubeSearchResponse>()
+        .await
+        .map_err(|error| {
+            eprintln!("YouTube arama yanıtı çözümlenemedi: {}", error.is_decode());
+            (
+                StatusCode::BAD_GATEWAY,
+                "YouTube arama sonuçları okunamadı.".into(),
+            )
+        })?;
+
+    let videos = response
+        .items
+        .into_iter()
+        .filter_map(|item| {
+            let id = item.id.video_id?;
+            if !id.chars().all(|character| {
+                character.is_ascii_alphanumeric() || character == '_' || character == '-'
+            }) {
+                return None;
+            }
+            let thumbnail_url = item
+                .snippet
+                .thumbnails
+                .high
+                .or(item.snippet.thumbnails.medium)
+                .or(item.snippet.thumbnails.default)
+                .map(|thumbnail| thumbnail.url)
+                .unwrap_or_default();
+            Some(YouTubeVideo {
+                id,
+                title: item.snippet.title,
+                description: item.snippet.description,
+                channel_title: item.snippet.channel_title,
+                thumbnail_url,
+            })
+        })
+        .collect();
+    Ok(Json(videos))
 }
 
 async fn verify_turnstile(
@@ -537,8 +683,15 @@ async fn persist_database(database: &Database) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
-fn database_path() -> String {
-    env::var("APP_DATA_FILE").unwrap_or_else(|_| "app-data.json".into())
+fn database_path() -> PathBuf {
+    let configured_path = env::var_os("APP_DATA_FILE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("app-data.json"));
+    if configured_path.is_absolute() {
+        configured_path
+    } else {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(configured_path)
+    }
 }
 
 fn hash_password(password: &str) -> Result<String, (StatusCode, String)> {
@@ -564,9 +717,10 @@ fn verify_password(password: &str, password_hash: &str) -> bool {
 }
 
 async fn authenticate(
+    headers: HeaderMap,
     State(state): State<Arc<AppState>>,
     Json(payload): Json<AuthPayload>,
-) -> Result<Json<AuthResponse>, (StatusCode, String)> {
+) -> Result<(HeaderMap, Json<AuthResponse>), (StatusCode, String)> {
     let nick = payload.nick.trim();
     let email = payload.email.trim().to_lowercase();
     if nick.is_empty() || nick.chars().count() > 32 {
@@ -639,24 +793,67 @@ async fn authenticate(
             "Oturum kalıcı olarak kaydedilemedi.".into(),
         )
     })?;
-    Ok(Json(AuthResponse {
-        session,
-        nick: user.nick,
-        email: user.email,
-    }))
+    let secure_cookie = headers
+        .get(header::ORIGIN)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|origin| origin.starts_with("https://"))
+        || headers
+            .get("x-forwarded-proto")
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|protocol| protocol.eq_ignore_ascii_case("https"));
+    let cookie = format!(
+        "mortex_session={session}; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax{}",
+        if secure_cookie { "; Secure" } else { "" }
+    );
+    let mut response_headers = HeaderMap::new();
+    response_headers.insert(
+        header::SET_COOKIE,
+        HeaderValue::from_str(&cookie).map_err(|error| {
+            eprintln!("Oturum çerezi hazırlanamadı: {error}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Oturum tarayıcıya güvenli biçimde aktarılamadı.".into(),
+            )
+        })?,
+    );
+    Ok((
+        response_headers,
+        Json(AuthResponse {
+            session,
+            nick: user.nick,
+            email: user.email,
+        }),
+    ))
+}
+
+fn session_token_from_headers(headers: &HeaderMap) -> Option<String> {
+    let bearer = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "));
+    if let Some(token) = bearer {
+        return Some(token.to_string());
+    }
+
+    headers
+        .get(header::COOKIE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|cookies| {
+            cookies.split(';').find_map(|cookie| {
+                let (name, value) = cookie.trim().split_once('=')?;
+                (name == "mortex_session" && !value.is_empty()).then(|| value.to_string())
+            })
+        })
 }
 
 async fn get_authenticated_email(
     headers: &HeaderMap,
     state: &AppState,
 ) -> Result<String, (StatusCode, String)> {
-    let token = headers
-        .get("authorization")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.strip_prefix("Bearer "))
+    let token = session_token_from_headers(headers)
         .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Oturum açmanız gerekiyor.".into()))?;
     let database = state.database.lock().await;
-    let session = database.sessions.get(token).cloned().ok_or_else(|| {
+    let session = database.sessions.get(&token).cloned().ok_or_else(|| {
         (
             StatusCode::UNAUTHORIZED,
             "Oturum geçersiz. Lütfen yeniden giriş yapın.".into(),
@@ -685,14 +882,10 @@ async fn get_session_user(
 async fn logout(
     headers: HeaderMap,
     State(state): State<Arc<AppState>>,
-) -> Result<StatusCode, (StatusCode, String)> {
-    if let Some(token) = headers
-        .get("authorization")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.strip_prefix("Bearer "))
-    {
+) -> Result<(HeaderMap, StatusCode), (StatusCode, String)> {
+    if let Some(token) = session_token_from_headers(&headers) {
         let mut database = state.database.lock().await;
-        database.sessions.remove(token);
+        database.sessions.remove(&token);
         persist_database(&database).await.map_err(|error| {
             eprintln!("Oturum kapatılamadı: {error}");
             (
@@ -701,7 +894,12 @@ async fn logout(
             )
         })?;
     }
-    Ok(StatusCode::NO_CONTENT)
+    let mut response_headers = HeaderMap::new();
+    response_headers.insert(
+        header::SET_COOKIE,
+        HeaderValue::from_static("mortex_session=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax"),
+    );
+    Ok((response_headers, StatusCode::NO_CONTENT))
 }
 
 async fn change_password(
@@ -1579,6 +1777,28 @@ mod tests {
         let legacy: Database = serde_json::from_str("{}").unwrap();
         assert!(legacy.sessions.is_empty());
         assert!(legacy.groups.is_empty());
+    }
+
+    #[test]
+    fn persistent_session_cookie_is_read_without_overriding_a_bearer_token() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::COOKIE,
+            HeaderValue::from_static("theme=dark; mortex_session=persistent-token"),
+        );
+        assert_eq!(
+            session_token_from_headers(&headers).as_deref(),
+            Some("persistent-token")
+        );
+
+        headers.insert(
+            header::AUTHORIZATION,
+            HeaderValue::from_static("Bearer bearer-token"),
+        );
+        assert_eq!(
+            session_token_from_headers(&headers).as_deref(),
+            Some("bearer-token")
+        );
     }
 
     #[test]

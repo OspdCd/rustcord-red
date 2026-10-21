@@ -21,6 +21,25 @@ finally {
 }
 
 $env:TURNSTILE_SITE_KEY = '0x4AAAAAAFfRY37-7PGoYfxH'
+$ownsYouTubeApiKey = $false
+if ([string]::IsNullOrWhiteSpace($env:YOUTUBE_API_KEY)) {
+    $secureYouTubeApiKey = Read-Host 'Enter YouTube Data API key for in-app search (optional; press Enter to skip)' -AsSecureString
+    if ($secureYouTubeApiKey.Length -gt 0) {
+        $youtubeKeyPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureYouTubeApiKey)
+        try {
+            $env:YOUTUBE_API_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($youtubeKeyPointer)
+            $ownsYouTubeApiKey = $true
+        }
+        finally {
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($youtubeKeyPointer)
+            Remove-Variable secureYouTubeApiKey
+        }
+    }
+    else {
+        Remove-Variable secureYouTubeApiKey
+    }
+}
+
 Push-Location $PSScriptRoot
 try {
     cargo run
@@ -29,6 +48,9 @@ try {
 finally {
     Remove-Item Env:TURNSTILE_SECRET_KEY -ErrorAction SilentlyContinue
     Remove-Item Env:TURNSTILE_SITE_KEY -ErrorAction SilentlyContinue
+    if ($ownsYouTubeApiKey) {
+        Remove-Item Env:YOUTUBE_API_KEY -ErrorAction SilentlyContinue
+    }
     Pop-Location
 }
 
