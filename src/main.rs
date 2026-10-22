@@ -47,6 +47,8 @@ struct GroupModel {
     #[serde(default)]
     moderator_emails: Vec<String>,
     #[serde(default)]
+    member_emails: Vec<String>,
+    #[serde(default)]
     categories: Vec<ChannelCategory>,
 }
 
@@ -72,6 +74,23 @@ struct GroupView {
     owner: String,
     role: String,
     categories: Vec<ChannelCategory>,
+}
+
+#[derive(Serialize, Clone)]
+struct GroupPresenceMember {
+    nick: String,
+    avatar_url: Option<String>,
+    role: String,
+    online: bool,
+}
+
+struct LiveGroupMember {
+    connections: HashSet<String>,
+}
+
+struct GroupWebSocketTicket {
+    email: String,
+    expires_at: i64,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -156,6 +175,41 @@ struct YouTubeVideo {
     thumbnail_url: String,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+struct SavedVideo {
+    provider: String,
+    id: String,
+    title: String,
+    channel_title: String,
+    thumbnail_url: String,
+}
+
+#[derive(Serialize, Deserialize, Default)]
+struct UserVideoCollections {
+    email: String,
+    #[serde(default)]
+    liked: Vec<SavedVideo>,
+    #[serde(default)]
+    favorites: Vec<SavedVideo>,
+}
+
+#[derive(Serialize)]
+struct VideoCollectionsResponse {
+    liked: Vec<SavedVideo>,
+    favorites: Vec<SavedVideo>,
+}
+
+#[derive(Deserialize)]
+struct UpdateVideoCollectionPayload {
+    video: SavedVideo,
+    saved: bool,
+}
+
+#[derive(Deserialize)]
+struct YouTubeRecommendationQuery {
+    topic: String,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 struct DirectMessage {
     id: String,
@@ -203,6 +257,8 @@ struct User {
     password_hash: String,
     #[serde(default)]
     disabled: bool,
+    #[serde(default)]
+    avatar_url: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -248,6 +304,8 @@ struct Database {
     groups: Vec<GroupModel>,
     #[serde(default)]
     sessions: HashMap<String, Session>,
+    #[serde(default)]
+    video_collections: Vec<UserVideoCollections>,
 }
 
 #[derive(Deserialize)]
@@ -263,6 +321,12 @@ struct AuthResponse {
     session: String,
     nick: String,
     email: String,
+    avatar_url: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct AvatarPayload {
+    avatar_url: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -279,6 +343,7 @@ struct NicknamePayload {
 #[derive(Serialize)]
 struct FriendListResponse {
     friends: Vec<String>,
+    friend_avatars: HashMap<String, String>,
     requests: Vec<IncomingFriendRequest>,
 }
 
@@ -303,6 +368,7 @@ struct CreateStoryPayload {
 struct SessionUser {
     nick: String,
     email: String,
+    avatar_url: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -322,6 +388,8 @@ struct AppState {
     notifications: Mutex<Vec<NotificationModel>>,
     database: Mutex<Database>,
     group_channels: Mutex<HashMap<String, broadcast::Sender<String>>>,
+    group_presence: Mutex<HashMap<u64, HashMap<String, LiveGroupMember>>>,
+    group_ws_tickets: Mutex<HashMap<String, GroupWebSocketTicket>>,
     tx: broadcast::Sender<String>,
 }
 
@@ -397,6 +465,8 @@ async fn main() {
         notifications: Mutex::new(initial_notifications),
         database: Mutex::new(database),
         group_channels: Mutex::new(HashMap::new()),
+        group_presence: Mutex::new(HashMap::new()),
+        group_ws_tickets: Mutex::new(HashMap::new()),
         tx,
     });
 
@@ -425,7 +495,12 @@ async fn main() {
         .route("/api/posts/:id/like", post(like_post))
         // 👥 GRUPLAR ROUTELERİ
         .route("/api/groups", get(get_groups).post(create_group))
+        .route("/api/groups/:group_id", delete(delete_group))
         .route("/api/groups/:group_id/channels", post(add_group_channel))
+        .route(
+            "/api/groups/:group_id/channels/:channel_id",
+            delete(delete_group_channel),
+        )
         .route(
             "/api/groups/:group_id/moderators",
             post(assign_group_moderator),
@@ -436,8 +511,22 @@ async fn main() {
         .route("/api/turnstile/verify", post(verify_turnstile))
         .route("/api/auth", post(authenticate))
         .route("/api/auth/me", get(get_session_user))
+        .route(
+            "/api/auth/websocket-ticket",
+            post(create_group_websocket_ticket),
+        )
+        .route("/api/auth/avatar", post(update_avatar))
         .route("/api/auth/logout", post(logout))
         .route("/api/youtube/search", get(search_youtube_videos))
+        .route(
+            "/api/youtube/recommendations",
+            get(get_youtube_recommendations),
+        )
+        .route("/api/videos/collections", get(get_video_collections))
+        .route(
+            "/api/videos/collections/:collection",
+            post(update_video_collection),
+        )
         .route("/api/auth/password", post(change_password))
         .route("/api/auth/nickname", post(change_nickname))
         .route("/api/auth/deactivate", post(deactivate_account))
@@ -503,21 +592,56 @@ async fn search_youtube_videos(
             "Arama sözü 1-120 karakter olmalı.".into(),
         ));
     }
+    Ok(Json(
+        fetch_youtube_videos(search_term, "short", "relevance").await?,
+    ))
+}
+
+async fn get_youtube_recommendations(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<YouTubeRecommendationQuery>,
+) -> Result<Json<Vec<YouTubeVideo>>, (StatusCode, String)> {
+    get_authenticated_email(&headers, &state).await?;
+    let search_term = match query.topic.as_str() {
+        "gaming" => "trending gaming videos",
+        "music" => "trending music videos",
+        "comedy" => "popular comedy videos",
+        "technology" => "latest technology videos",
+        "sports" => "popular sports videos",
+        "turkey" => "Türkiye trend videolar",
+        _ => {
+            return Err((StatusCode::BAD_REQUEST, "Geçersiz öneri kategorisi.".into()));
+        }
+    };
+    Ok(Json(
+        fetch_youtube_videos(search_term, "any", "date").await?,
+    ))
+}
+
+async fn fetch_youtube_videos(
+    search_term: &str,
+    duration: &str,
+    order: &str,
+) -> Result<Vec<YouTubeVideo>, (StatusCode, String)> {
     let api_key = env::var("YOUTUBE_API_KEY")
         .ok()
         .filter(|key| !key.trim().is_empty())
         .ok_or_else(|| {
             (
                 StatusCode::SERVICE_UNAVAILABLE,
-                "Uygulama içi YouTube araması için sunucuda YOUTUBE_API_KEY ayarlanmalı. Video bağlantısını ekleyerek izleyebilirsin.".into(),
+                "YouTube araması için YOUTUBE_API_KEY ayarlanmalı.".into(),
             )
         })?;
-    let response = reqwest::Client::new()
+    let upstream = reqwest::Client::new()
         .get("https://www.googleapis.com/youtube/v3/search")
         .query(&[
             ("part", "snippet"),
             ("type", "video"),
-            ("videoDuration", "short"),
+            ("videoDuration", duration),
+            ("order", order),
+            ("regionCode", "TR"),
+            ("relevanceLanguage", "tr"),
             ("maxResults", "12"),
             ("q", search_term),
             ("key", api_key.as_str()),
@@ -535,29 +659,41 @@ async fn search_youtube_videos(
                 "YouTube arama servisine şu anda ulaşılamıyor.".into(),
             )
         })?;
-    if !response.status().is_success() {
-        let status = response.status();
-        let error_body = response
+    if !upstream.status().is_success() {
+        let status = upstream.status();
+        let error_body = upstream
             .json::<serde_json::Value>()
             .await
             .unwrap_or(serde_json::Value::Null);
         let reason = error_body
             .pointer("/error/errors/0/reason")
             .and_then(serde_json::Value::as_str)
+            .or_else(|| {
+                error_body
+                    .pointer("/error/status")
+                    .and_then(serde_json::Value::as_str)
+            })
             .unwrap_or("unknown");
+        let google_message = error_body
+            .pointer("/error/message")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("no details");
         eprintln!(
-            "YouTube araması HTTP {} yanıtı verdi (reason={reason}).",
+            "YouTube araması HTTP {} yanıtı verdi (reason={reason}, message={google_message}).",
             status
         );
         let message = match (status.as_u16(), reason) {
             (_, "quotaExceeded" | "dailyLimitExceeded") => {
-                "YouTube API günlük kotası dolmuş. Google Cloud Console'da kotanı kontrol et."
+                "YouTube API anahtarının kotası dolmuş. Yenisini ayarlayıp sunucuyu yeniden başlat."
+            }
+            (400, "keyInvalid" | "API_KEY_INVALID") | (403, "keyInvalid") => {
+                "YouTube API anahtarı geçersiz."
+            }
+            (403, "accessNotConfigured") => {
+                "YouTube Data API v3 bu anahtarın projesinde etkin değil."
             }
             (400, _) => {
-                "YouTube API anahtarı geçersiz veya YouTube Data API v3 bu projede etkin değil."
-            }
-            (403, "keyInvalid" | "accessNotConfigured") => {
-                "YouTube API anahtarını ve YouTube Data API v3 etkinleştirmesini kontrol et."
+                "YouTube isteği geçersiz. Arama terimini ve API parametrelerini kontrol et."
             }
             (403, _) => {
                 "YouTube API isteği reddedildi. Anahtar kısıtlamalarını ve API izinlerini kontrol et."
@@ -567,7 +703,7 @@ async fn search_youtube_videos(
         };
         return Err((StatusCode::BAD_GATEWAY, message.into()));
     }
-    let response = response
+    let response = upstream
         .json::<YouTubeSearchResponse>()
         .await
         .map_err(|error| {
@@ -605,7 +741,7 @@ async fn search_youtube_videos(
             })
         })
         .collect();
-    Ok(Json(videos))
+    Ok(videos)
 }
 
 async fn verify_turnstile(
@@ -798,6 +934,7 @@ async fn authenticate(
             nick: nick.to_string(),
             password_hash: hash_password(&payload.password)?,
             disabled: false,
+            avatar_url: None,
         };
         database.users.push(new_user.clone());
         persist_database(&database).await.map_err(|error| {
@@ -852,6 +989,7 @@ async fn authenticate(
             session,
             nick: user.nick,
             email: user.email,
+            avatar_url: user.avatar_url,
         }),
     ))
 }
@@ -892,6 +1030,30 @@ async fn get_authenticated_email(
     Ok(session.email)
 }
 
+#[derive(Serialize)]
+struct GroupWebSocketTicketResponse {
+    ticket: String,
+}
+
+async fn create_group_websocket_ticket(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<GroupWebSocketTicketResponse>, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let ticket = Uuid::new_v4().to_string();
+    let now = now_unix();
+    let mut tickets = state.group_ws_tickets.lock().await;
+    tickets.retain(|_, ticket| ticket.expires_at > now);
+    tickets.insert(
+        ticket.clone(),
+        GroupWebSocketTicket {
+            email,
+            expires_at: now + 60,
+        },
+    );
+    Ok(Json(GroupWebSocketTicketResponse { ticket }))
+}
+
 async fn get_session_user(
     headers: HeaderMap,
     State(state): State<Arc<AppState>>,
@@ -906,7 +1068,89 @@ async fn get_session_user(
     Ok(Json(SessionUser {
         nick: user.nick.clone(),
         email: user.email.clone(),
+        avatar_url: user.avatar_url.clone(),
     }))
+}
+
+fn valid_avatar_data_url(value: &str) -> bool {
+    const MAX_ENCODED_LENGTH: usize = 699_052;
+    let Some((mime_type, encoded)) = value.split_once(";base64,").and_then(|(header, data)| {
+        header
+            .strip_prefix("data:")
+            .map(|mime_type| (mime_type, data))
+    }) else {
+        return false;
+    };
+    if !matches!(mime_type, "image/png" | "image/jpeg" | "image/webp")
+        || encoded.is_empty()
+        || encoded.len() > MAX_ENCODED_LENGTH
+        || encoded.len() % 4 != 0
+    {
+        return false;
+    }
+    let padding_index = encoded.find('=').unwrap_or(encoded.len());
+    if encoded[padding_index..].len() > 2 {
+        return false;
+    }
+    encoded[..padding_index]
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'/'))
+        && encoded[padding_index..].bytes().all(|byte| byte == b'=')
+}
+
+async fn update_avatar(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<AvatarPayload>,
+) -> Result<Json<SessionUser>, (StatusCode, String)> {
+    if payload
+        .avatar_url
+        .as_deref()
+        .is_some_and(|avatar_url| !valid_avatar_data_url(avatar_url))
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Profil fotoğrafı PNG, JPG veya WebP olmalı ve 512 KB'ı geçmemeli.".into(),
+        ));
+    }
+    let email = get_authenticated_email(&headers, &state).await?;
+    let mut database = state.database.lock().await;
+    let user = database
+        .users
+        .iter_mut()
+        .find(|user| user.email == email && !user.disabled)
+        .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Hesap bulunamadı.".into()))?;
+    user.avatar_url = payload.avatar_url;
+    let response = SessionUser {
+        nick: user.nick.clone(),
+        email: user.email.clone(),
+        avatar_url: user.avatar_url.clone(),
+    };
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Profil fotoğrafı kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Profil fotoğrafı kaydedilemedi.".into(),
+        )
+    })?;
+    let affected_group_ids: Vec<_> = database
+        .groups
+        .iter()
+        .filter(|group| {
+            group.member_emails.contains(&email)
+                || group.owner_email.as_deref() == Some(email.as_str())
+                || group
+                    .moderator_emails
+                    .iter()
+                    .any(|moderator| moderator == &email)
+        })
+        .map(|group| group.id)
+        .collect();
+    drop(database);
+    for group_id in affected_group_ids {
+        broadcast_group_presence(&state, group_id).await;
+    }
+    Ok(Json(response))
 }
 
 async fn logout(
@@ -1047,6 +1291,9 @@ async fn delete_account(
         .direct_messages
         .retain(|message| message.from_email != email && message.to_email != email);
     database
+        .video_collections
+        .retain(|collection| collection.email != email);
+    database
         .sessions
         .retain(|_, session| session.email != email);
     persist_database(&database).await.map_err(|error| {
@@ -1065,7 +1312,7 @@ async fn get_friends(
 ) -> Result<Json<FriendListResponse>, (StatusCode, String)> {
     let email = get_authenticated_email(&headers, &state).await?;
     let database = state.database.lock().await;
-    let friends = database
+    let friend_profiles: Vec<(String, Option<String>)> = database
         .friendships
         .iter()
         .filter_map(|friendship| {
@@ -1080,8 +1327,16 @@ async fn get_friends(
                 .users
                 .iter()
                 .find(|user| user.email == *friend_email && !user.disabled)
-                .map(|user| user.nick.clone())
+                .map(|user| (user.nick.clone(), user.avatar_url.clone()))
         })
+        .collect();
+    let friends = friend_profiles
+        .iter()
+        .map(|(nick, _)| nick.clone())
+        .collect();
+    let friend_avatars = friend_profiles
+        .into_iter()
+        .filter_map(|(nick, avatar_url)| avatar_url.map(|avatar_url| (nick, avatar_url)))
         .collect();
     let requests = database
         .friend_requests
@@ -1098,7 +1353,112 @@ async fn get_friends(
                 })
         })
         .collect();
-    Ok(Json(FriendListResponse { friends, requests }))
+    Ok(Json(FriendListResponse {
+        friends,
+        friend_avatars,
+        requests,
+    }))
+}
+
+async fn get_video_collections(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<VideoCollectionsResponse>, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let database = state.database.lock().await;
+    let collections = database
+        .video_collections
+        .iter()
+        .find(|collections| collections.email == email);
+    Ok(Json(VideoCollectionsResponse {
+        liked: collections.map_or_else(Vec::new, |collections| collections.liked.clone()),
+        favorites: collections.map_or_else(Vec::new, |collections| collections.favorites.clone()),
+    }))
+}
+
+async fn update_video_collection(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Path(collection_name): Path<String>,
+    Json(payload): Json<UpdateVideoCollectionPayload>,
+) -> Result<Json<VideoCollectionsResponse>, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    if !matches!(collection_name.as_str(), "liked" | "favorites") {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Video listesi liked veya favorites olmalı.".into(),
+        ));
+    }
+    if !matches!(payload.video.provider.as_str(), "youtube" | "instagram")
+        || payload.video.id.is_empty()
+        || payload.video.id.len() > 128
+        || !payload
+            .video
+            .id
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-'))
+        || payload.video.title.len() > 300
+        || payload.video.channel_title.len() > 160
+        || payload.video.thumbnail_url.len() > 2048
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Video bilgileri geçersiz veya çok uzun.".into(),
+        ));
+    }
+
+    let mut database = state.database.lock().await;
+    let collections = database
+        .video_collections
+        .iter_mut()
+        .find(|collections| collections.email == email);
+    let collections = match collections {
+        Some(collections) => collections,
+        None => {
+            database.video_collections.push(UserVideoCollections {
+                email: email.clone(),
+                ..UserVideoCollections::default()
+            });
+            database
+                .video_collections
+                .last_mut()
+                .expect("collection inserted")
+        }
+    };
+    let videos = if collection_name == "liked" {
+        &mut collections.liked
+    } else {
+        &mut collections.favorites
+    };
+    let existing = videos
+        .iter()
+        .position(|video| video.provider == payload.video.provider && video.id == payload.video.id);
+    if payload.saved {
+        if let Some(index) = existing {
+            videos[index] = payload.video;
+        } else {
+            videos.push(payload.video);
+        }
+    } else if let Some(index) = existing {
+        videos.remove(index);
+    }
+
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Video listesi kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Video listesi kaydedilemedi.".into(),
+        )
+    })?;
+    let collections = database
+        .video_collections
+        .iter()
+        .find(|collections| collections.email == email)
+        .expect("collection exists after update");
+    Ok(Json(VideoCollectionsResponse {
+        liked: collections.liked.clone(),
+        favorites: collections.favorites.clone(),
+    }))
 }
 
 async fn create_friend_request(
@@ -1426,6 +1786,7 @@ fn default_groups() -> Vec<GroupModel> {
             members_count: if index == 0 { 15 } else { 8 },
             owner_email: None,
             moderator_emails: Vec::new(),
+            member_emails: Vec::new(),
             categories: vec![
                 ChannelCategory {
                     id: "general".into(),
@@ -1494,7 +1855,22 @@ fn group_has_channel(group: &GroupModel, channel_id: &str) -> bool {
         .any(|channel| channel.id == channel_id)
 }
 
+fn remove_group_channel(group: &mut GroupModel, channel_id: &str) -> bool {
+    let mut removed = false;
+    group.categories.retain_mut(|category| {
+        let original_len = category.channels.len();
+        category.channels.retain(|channel| channel.id != channel_id);
+        removed |= category.channels.len() != original_len;
+        !category.channels.is_empty()
+    });
+    removed
+}
+
 fn can_assign_group_moderators(group: &GroupModel, email: &str) -> bool {
+    group.owner_email.as_deref() == Some(email)
+}
+
+fn can_delete_group(group: &GroupModel, email: &str) -> bool {
     group.owner_email.as_deref() == Some(email)
 }
 
@@ -1539,6 +1915,7 @@ async fn create_group(
         members_count: 1,
         owner_email: Some(email.clone()),
         moderator_emails: Vec::new(),
+        member_emails: vec![email.clone()],
         categories: default_groups()[0].categories.clone(),
     };
     database.groups.push(new_group.clone());
@@ -1550,6 +1927,32 @@ async fn create_group(
         )
     })?;
     Ok(Json(group_view(&new_group, &email, &database)))
+}
+
+async fn delete_group(
+    Path(group_id): Path<u64>,
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let mut database = state.database.lock().await;
+    let group = database
+        .groups
+        .iter()
+        .find(|group| group.id == group_id)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "Grup bulunamadı.".into()))?;
+    if !can_delete_group(group, &email) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Grubu yalnızca kurucusu silebilir.".into(),
+        ));
+    }
+    database.groups.retain(|group| group.id != group_id);
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Grup silinemedi: {error}");
+        (StatusCode::INTERNAL_SERVER_ERROR, "Grup silinemedi.".into())
+    })?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn add_group_channel(
@@ -1635,6 +2038,38 @@ async fn add_group_channel(
     Ok(Json(group_view(&group, &email, &database)))
 }
 
+async fn delete_group_channel(
+    Path((group_id, channel_id)): Path<(u64, String)>,
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<GroupView>, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let mut database = state.database.lock().await;
+    let group = database
+        .groups
+        .iter_mut()
+        .find(|group| group.id == group_id)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "Grup bulunamadı.".into()))?;
+    if !can_manage_group_channels(group, &email) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Kanal silmek için kurucu veya moderatör olmalısınız.".into(),
+        ));
+    }
+    if !remove_group_channel(group, &channel_id) {
+        return Err((StatusCode::NOT_FOUND, "Silinecek kanal bulunamadı.".into()));
+    }
+    let group = group.clone();
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Grup kanalı silinemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Kanal silinemedi.".into(),
+        )
+    })?;
+    Ok(Json(group_view(&group, &email, &database)))
+}
+
 async fn assign_group_moderator(
     Path(group_id): Path<u64>,
     headers: HeaderMap,
@@ -1674,7 +2109,10 @@ async fn assign_group_moderator(
         ));
     }
     if !group.moderator_emails.contains(&target.email) {
-        group.moderator_emails.push(target.email);
+        group.moderator_emails.push(target.email.clone());
+    }
+    if !group.member_emails.contains(&target.email) {
+        group.member_emails.push(target.email);
     }
     let group = group.clone();
     persist_database(&database).await.map_err(|error| {
@@ -1729,19 +2167,48 @@ async fn group_websocket_handler(
 
 async fn group_channel_websocket_handler(
     Path((group_id, channel_id)): Path<(u64, String)>,
+    Query(query): Query<GroupWebSocketQuery>,
+    headers: HeaderMap,
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
 ) -> Result<impl axum::response::IntoResponse, StatusCode> {
-    let channel_exists = state
-        .database
-        .lock()
-        .await
-        .groups
-        .iter()
-        .find(|group| group.id == group_id)
-        .is_some_and(|group| group_has_channel(group, &channel_id));
-    if !channel_exists {
-        return Err(StatusCode::NOT_FOUND);
+    let email = match query.ticket {
+        Some(ticket) => {
+            let mut tickets = state.group_ws_tickets.lock().await;
+            take_group_websocket_ticket(&mut tickets, &ticket, now_unix())
+                .ok_or(StatusCode::UNAUTHORIZED)?
+        }
+        None => get_authenticated_email(&headers, &state)
+            .await
+            .map_err(|_| StatusCode::UNAUTHORIZED)?,
+    };
+    {
+        let mut database = state.database.lock().await;
+        let user_exists = database
+            .users
+            .iter()
+            .any(|user| user.email == email && !user.disabled);
+        if !user_exists {
+            return Err(StatusCode::UNAUTHORIZED);
+        }
+        let group = database
+            .groups
+            .iter_mut()
+            .find(|group| group.id == group_id)
+            .ok_or(StatusCode::NOT_FOUND)?;
+        if !group_has_channel(group, &channel_id) {
+            return Err(StatusCode::NOT_FOUND);
+        }
+        let new_member = !group.member_emails.contains(&email);
+        if new_member {
+            group.member_emails.push(email.clone());
+        }
+        if new_member {
+            persist_database(&database).await.map_err(|error| {
+                eprintln!("Grup üyeliği kaydedilemedi: {error}");
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
+        }
     }
 
     let channel_key = format!("{group_id}:{channel_id}");
@@ -1752,7 +2219,168 @@ async fn group_channel_websocket_handler(
             .or_insert_with(|| broadcast::channel(100).0)
             .clone()
     };
-    Ok(ws.on_upgrade(move |socket| handle_socket(socket, tx)))
+    Ok(
+        ws.on_upgrade(move |socket| {
+            handle_group_channel_socket(socket, tx, state, group_id, email)
+        }),
+    )
+}
+
+#[derive(Deserialize)]
+struct GroupWebSocketQuery {
+    ticket: Option<String>,
+}
+
+fn take_group_websocket_ticket(
+    tickets: &mut HashMap<String, GroupWebSocketTicket>,
+    ticket: &str,
+    now: i64,
+) -> Option<String> {
+    tickets
+        .remove(ticket)
+        .filter(|ticket| ticket.expires_at > now)
+        .map(|ticket| ticket.email)
+}
+
+fn group_member_profiles(
+    group: &GroupModel,
+    users: &[User],
+    online_emails: &HashSet<String>,
+) -> Vec<GroupPresenceMember> {
+    let member_emails: HashSet<_> = group
+        .member_emails
+        .iter()
+        .chain(group.owner_email.iter())
+        .chain(group.moderator_emails.iter())
+        .collect();
+    let mut members: Vec<_> = users
+        .iter()
+        .filter(|user| !user.disabled && member_emails.contains(&user.email))
+        .map(|user| GroupPresenceMember {
+            nick: user.nick.clone(),
+            avatar_url: user.avatar_url.clone(),
+            role: if group.owner_email.as_deref() == Some(user.email.as_str()) {
+                "Kurucu"
+            } else if group
+                .moderator_emails
+                .iter()
+                .any(|moderator| moderator == &user.email)
+            {
+                "Moderatör"
+            } else {
+                "Üye"
+            }
+            .into(),
+            online: online_emails.contains(&user.email),
+        })
+        .collect();
+    members.sort_by(|first, second| {
+        second
+            .online
+            .cmp(&first.online)
+            .then_with(|| first.nick.to_lowercase().cmp(&second.nick.to_lowercase()))
+    });
+    members
+}
+
+async fn group_presence_snapshot(state: &AppState, group_id: u64) -> Vec<GroupPresenceMember> {
+    let (group, users) = {
+        let database = state.database.lock().await;
+        let Some(group) = database
+            .groups
+            .iter()
+            .find(|group| group.id == group_id)
+            .cloned()
+        else {
+            return Vec::new();
+        };
+        let users = database.users.clone();
+        (group, users)
+    };
+    let online_emails: HashSet<_> = state
+        .group_presence
+        .lock()
+        .await
+        .get(&group_id)
+        .map(|members| members.keys().cloned().collect())
+        .unwrap_or_default();
+    group_member_profiles(&group, &users, &online_emails)
+}
+
+async fn broadcast_group_presence(state: &AppState, group_id: u64) {
+    let members = group_presence_snapshot(state, group_id).await;
+    let event = serde_json::json!({
+        "type": "group-presence",
+        "members": members,
+    })
+    .to_string();
+    let senders: Vec<_> = state
+        .group_channels
+        .lock()
+        .await
+        .iter()
+        .filter(|(channel_key, _)| channel_key.starts_with(&format!("{group_id}:")))
+        .map(|(_, sender)| sender.clone())
+        .collect();
+    for sender in senders {
+        let _ = sender.send(event.clone());
+    }
+}
+
+async fn handle_group_channel_socket(
+    socket: WebSocket,
+    tx: broadcast::Sender<String>,
+    state: Arc<AppState>,
+    group_id: u64,
+    email: String,
+) {
+    let connection_id = Uuid::new_v4().to_string();
+    let (mut sender, mut receiver) = socket.split();
+    let mut rx = tx.subscribe();
+    {
+        let mut presence = state.group_presence.lock().await;
+        let member = presence
+            .entry(group_id)
+            .or_default()
+            .entry(email.clone())
+            .or_insert_with(|| LiveGroupMember {
+                connections: HashSet::new(),
+            });
+        member.connections.insert(connection_id.clone());
+    }
+    broadcast_group_presence(&state, group_id).await;
+
+    let mut send_task = tokio::spawn(async move {
+        while let Ok(message) = rx.recv().await {
+            if sender.send(Message::Text(message.into())).await.is_err() {
+                break;
+            }
+        }
+    });
+    let mut receive_task = tokio::spawn(async move {
+        while let Some(Ok(Message::Text(text))) = receiver.next().await {
+            let _ = tx.send(text.to_string());
+        }
+    });
+    tokio::select! {
+        _ = &mut send_task => receive_task.abort(),
+        _ = &mut receive_task => send_task.abort(),
+    };
+
+    let mut presence = state.group_presence.lock().await;
+    if let Some(members) = presence.get_mut(&group_id) {
+        if let Some(member) = members.get_mut(&email) {
+            member.connections.remove(&connection_id);
+            if member.connections.is_empty() {
+                members.remove(&email);
+            }
+        }
+        if members.is_empty() {
+            presence.remove(&group_id);
+        }
+    }
+    drop(presence);
+    broadcast_group_presence(&state, group_id).await;
 }
 
 async fn handle_socket(socket: WebSocket, tx: broadcast::Sender<String>) {
@@ -1789,6 +2417,110 @@ mod tests {
         assert!(!validate_email("user@localhost"));
         assert!(!validate_email("not-an-email"));
         assert!(!validate_email("user @example.com"));
+    }
+
+    #[test]
+    fn group_websocket_tickets_expire_and_can_only_be_used_once() {
+        let mut tickets = HashMap::from([(
+            "valid-ticket".to_string(),
+            GroupWebSocketTicket {
+                email: "user@example.com".into(),
+                expires_at: 101,
+            },
+        )]);
+        tickets.insert(
+            "expired-ticket".into(),
+            GroupWebSocketTicket {
+                email: "old@example.com".into(),
+                expires_at: 99,
+            },
+        );
+
+        assert_eq!(
+            take_group_websocket_ticket(&mut tickets, "valid-ticket", 100).as_deref(),
+            Some("user@example.com")
+        );
+        assert!(take_group_websocket_ticket(&mut tickets, "valid-ticket", 100).is_none());
+        assert!(take_group_websocket_ticket(&mut tickets, "expired-ticket", 100).is_none());
+    }
+
+    #[test]
+    fn validates_profile_photo_data_urls_and_accepts_legacy_users() {
+        assert!(valid_avatar_data_url("data:image/png;base64,aGVsbG8="));
+        assert!(valid_avatar_data_url("data:image/webp;base64,aGVsbG8="));
+        assert!(!valid_avatar_data_url("data:image/svg+xml;base64,aGVsbG8="));
+        assert!(!valid_avatar_data_url("data:image/png;base64,hello"));
+        assert!(!valid_avatar_data_url("data:image/jpeg;base64,aGVs!G8="));
+
+        let legacy_user: User = serde_json::from_str(
+            r#"{"email":"user@example.com","nick":"User","password_hash":"hash","disabled":false}"#,
+        )
+        .unwrap();
+        assert!(legacy_user.avatar_url.is_none());
+    }
+
+    #[test]
+    fn deleting_group_channel_removes_its_empty_category() {
+        let mut group = GroupModel {
+            id: 1,
+            name: "Test".into(),
+            members_count: 1,
+            owner_email: Some("owner@example.com".into()),
+            moderator_emails: Vec::new(),
+            member_emails: vec!["owner@example.com".into()],
+            categories: vec![
+                ChannelCategory {
+                    id: "text".into(),
+                    name: "TEXT".into(),
+                    channels: vec![GroupChannel {
+                        id: "text-one".into(),
+                        name: "general".into(),
+                        kind: "text".into(),
+                    }],
+                },
+                ChannelCategory {
+                    id: "voice".into(),
+                    name: "VOICE".into(),
+                    channels: vec![
+                        GroupChannel {
+                            id: "voice-one".into(),
+                            name: "lobby".into(),
+                            kind: "voice".into(),
+                        },
+                        GroupChannel {
+                            id: "voice-two".into(),
+                            name: "gaming".into(),
+                            kind: "voice".into(),
+                        },
+                    ],
+                },
+            ],
+        };
+
+        assert!(remove_group_channel(&mut group, "voice-one"));
+        assert_eq!(group.categories.len(), 2);
+        assert_eq!(group.categories[1].channels.len(), 1);
+        assert!(!remove_group_channel(&mut group, "missing"));
+        assert!(remove_group_channel(&mut group, "text-one"));
+        assert_eq!(group.categories.len(), 1);
+        assert_eq!(group.categories[0].channels[0].id, "voice-two");
+    }
+
+    #[test]
+    fn only_group_founder_can_delete_the_group() {
+        let group = GroupModel {
+            id: 7,
+            name: "Test".into(),
+            members_count: 2,
+            owner_email: Some("owner@example.com".into()),
+            moderator_emails: vec!["moderator@example.com".into()],
+            member_emails: vec!["owner@example.com".into(), "moderator@example.com".into()],
+            categories: Vec::new(),
+        };
+
+        assert!(can_delete_group(&group, "owner@example.com"));
+        assert!(!can_delete_group(&group, "moderator@example.com"));
+        assert!(!can_delete_group(&group, "member@example.com"));
     }
 
     #[test]
@@ -1880,6 +2612,7 @@ mod tests {
             members_count: 1,
             owner_email: Some("founder@example.com".into()),
             moderator_emails: vec!["mod@example.com".into()],
+            member_emails: vec!["founder@example.com".into(), "mod@example.com".into()],
             categories: default_groups()[0].categories.clone(),
         };
         assert!(can_manage_group_channels(&group, "founder@example.com"));
@@ -1908,6 +2641,53 @@ mod tests {
         assert_eq!(public_json["role"], "founder");
         assert!(public_json.get("owner_email").is_none());
         assert!(public_json.get("moderator_emails").is_none());
+    }
+
+    #[test]
+    fn group_member_profiles_include_offline_members_and_online_status() {
+        let group = GroupModel {
+            id: 9,
+            name: "Test".into(),
+            members_count: 3,
+            owner_email: Some("owner@example.com".into()),
+            moderator_emails: vec!["moderator@example.com".into()],
+            member_emails: vec![
+                "owner@example.com".into(),
+                "moderator@example.com".into(),
+                "member@example.com".into(),
+            ],
+            categories: Vec::new(),
+        };
+        let users = ["owner", "moderator", "member", "not-a-member"]
+            .into_iter()
+            .map(|nick| User {
+                email: format!("{nick}@example.com"),
+                nick: nick.into(),
+                password_hash: "hash".into(),
+                disabled: false,
+                avatar_url: None,
+            })
+            .collect::<Vec<_>>();
+
+        let members = group_member_profiles(
+            &group,
+            &users,
+            &HashSet::from(["moderator@example.com".into()]),
+        );
+        assert_eq!(members.len(), 3);
+        let moderator = members
+            .iter()
+            .find(|member| member.nick == "moderator")
+            .unwrap();
+        assert_eq!(moderator.role, "Moderatör");
+        assert!(moderator.online);
+        let owner = members
+            .iter()
+            .find(|member| member.nick == "owner")
+            .unwrap();
+        assert_eq!(owner.role, "Kurucu");
+        assert!(!owner.online);
+        assert!(!members.iter().any(|member| member.nick == "not-a-member"));
     }
 
     #[test]

@@ -40,7 +40,8 @@
         .auth-showcase::before { width: 360px; height: 360px; right: -170px; top: 115px; box-shadow: 0 0 0 34px rgba(255,255,255,.025), 0 0 0 70px rgba(255,255,255,.02); }
         .auth-showcase::after { width: 220px; height: 220px; right: -100px; top: 185px; }
         .auth-brand { position: relative; z-index: 1; display: flex; align-items: center; gap: 12px; color: #fff; font-size: 14px; font-weight: 800; letter-spacing: .12em; }
-        .auth-brand-mark { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid rgba(255,255,255,.18); border-radius: 14px; background: linear-gradient(145deg, #ef4444, #991b1b); box-shadow: 0 8px 26px rgba(220,38,38,.25); font-size: 21px; }
+        .auth-brand-mark { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid rgba(255,255,255,.18); border-radius: 14px; background: linear-gradient(145deg, #ef4444, #991b1b); box-shadow: 0 8px 26px rgba(220,38,38,.25); }
+        .site-logo-bolt { display: block; width: 21px; height: 27px; fill: #ffd34e; filter: drop-shadow(0 1px 2px rgba(102, 55, 0, .35)); }
         .auth-showcase-copy { position: relative; z-index: 1; max-width: 340px; padding: 54px 0 34px; }
         .auth-eyebrow { margin-bottom: 16px; color: #fca5a5; font-size: 11px; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
         .auth-showcase h1 { max-width: 330px; color: #fff; font-size: clamp(32px, 4vw, 48px); line-height: 1.08; letter-spacing: -.045em; }
@@ -108,7 +109,7 @@
         .brand-logo {
             width: 36px; height: 36px; background: #dc2626; border-radius: 10px;
             display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 18px;
-            box-shadow: 0 0 15px rgba(220, 38, 38, 0.5); cursor: pointer;
+            padding: 0; border: 0; box-shadow: 0 0 15px rgba(220, 38, 38, 0.5); cursor: pointer;
         }
         .left-icon {
             width: 38px; height: 38px; border-radius: 10px; color: #71717a;
@@ -137,13 +138,20 @@
         .group-categories-list { display: grid; gap: 11px; padding: 12px 0; }
         .group-category { margin: 0; padding: 0; background: transparent; }
         .group-category-heading { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 3px 4px 5px; color: #8d8d99; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
-        .group-category-heading-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 2px; }
-        .group-category-add { display: grid; width: 22px; height: 22px; place-items: center; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #9595a0; font-size: 16px; cursor: pointer; }
+        .group-category-heading-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 4px; }
+        .group-category-add { display: inline-flex; min-height: 25px; align-items: center; justify-content: center; gap: 3px; padding: 3px 5px; border: 1px solid #30303a; border-radius: 7px; background: #19191f; color: #c5c5cf; font-size: 9px; white-space: nowrap; cursor: pointer; }
         .group-category-add:hover { border-color: #35353e; background: #1b1b22; color: #fff; }
+        .group-category-add[data-channel-kind="text"] { border-color: rgba(125,155,255,.18); }
+        .group-category-add[data-channel-kind="voice"] { border-color: rgba(181,132,255,.18); }
+        .group-channel-permission-hint { padding: 9px; border: 1px solid #292933; border-radius: 9px; color: #92929e; font-size: 10px; line-height: 1.5; }
         .group-channel-list { display: grid; gap: 2px; }
+        .group-channel-row { display: flex; min-width: 0; align-items: center; gap: 2px; }
         .group-channel { display: flex; width: 100%; min-width: 0; align-items: center; gap: 8px; margin: 0; padding: 7px 8px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #9999a5; font-size: 12px; text-align: left; cursor: pointer; }
+        .group-channel-row .group-channel { flex: 1; }
         .group-channel:hover { background: #18181f; color: #dddde5; }
         .group-channel.active { border-color: #2c2931; background: #222127; color: #fff; }
+        .group-channel-delete { display: grid; width: 25px; height: 25px; flex: 0 0 25px; place-items: center; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #888894; font-size: 15px; opacity: 0; cursor: pointer; }
+        .group-channel-row:hover .group-channel-delete, .group-channel-delete:focus-visible { border-color: #3b292d; background: #241619; color: #ff9da4; opacity: 1; }
         .group-channel-icon { width: 16px; flex: 0 0 16px; color: #878792; font-size: 15px; text-align: center; }
         .group-channel-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .group-admin-sidebar { margin-top: auto; padding: 10px 3px 4px; border-top: 1px solid #24242c; }
@@ -211,6 +219,24 @@
         .reel-search { width: min(100%, 620px); display: flex; gap: 8px; }
         .reel-search input { flex: 1; min-width: 0; background: #16161c; border: 1px solid #26262e; padding: 10px 12px; border-radius: 10px; color: #fff; }
         .youtube-search-results { display: grid; width: min(100%, 820px); grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+        .recommended-video-grid { display: grid; width: min(100%, 1180px); grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+        .recommended-video-card { min-width: 0; overflow: hidden; border: 1px solid #25252d; border-radius: 14px; background: #111115; }
+        .recommended-video-open { display: block; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+        .recommended-video-open img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #09090c; }
+        .recommended-video-copy { display: grid; gap: 5px; padding: 10px 11px 4px; }
+        .recommended-video-copy strong { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; color: #f4f4f5; font-size: 12px; line-height: 1.4; }
+        .recommended-video-copy span { overflow: hidden; color: #92929e; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+        .video-personal-actions { display: flex; gap: 6px; padding: 7px 9px 9px; }
+        .video-personal-action { min-height: 30px; padding: 5px 8px; border: 1px solid #2d2d36; border-radius: 8px; background: #17171d; color: #aaaab5; font-size: 10px; cursor: pointer; }
+        .video-personal-action[aria-pressed="true"] { border-color: rgba(239,68,68,.4); background: rgba(127,29,29,.24); color: #ffadb3; }
+        .video-section-heading { display: flex; width: min(100%, 1180px); align-items: center; justify-content: space-between; gap: 12px; }
+        .video-section-heading h3 { color: #f4f4f5; font-size: 15px; }
+        .video-section-heading p { margin-top: 3px; color: #8c8c97; font-size: 10px; }
+        .video-section-heading .youtube-play-selected { min-height: 34px; padding: 7px 10px; }
+        .video-collection-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+        .video-collection-tab { padding: 8px 12px; border: 1px solid #292932; border-radius: 9px; background: #141419; color: #a1a1aa; cursor: pointer; }
+        .video-collection-tab.active { border-color: #77353b; background: #241619; color: #ffc4c8; }
+        .video-collection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 10px; }
         .youtube-result-card { position: relative; overflow: hidden; padding: 0; border: 1px solid #292933; border-radius: 13px; background: #121216; color: #f4f4f5; text-align: left; cursor: pointer; transition: border-color .18s, transform .18s, background .18s; }
         .youtube-result-card:hover { transform: translateY(-2px); border-color: #804047; }
         .youtube-result-card[aria-pressed="true"] { border-color: #f0525b; background: #1b1216; box-shadow: 0 0 0 1px rgba(240,82,91,.24); }
@@ -292,6 +318,9 @@
         .group-card-copy span { overflow: hidden; color: #92929e; font-size: 10px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
         .group-enter-btn { min-height: 34px; padding: 7px 10px; border: 1px solid #363039; border-radius: 9px; background: #1c171b; color: #f4c9cc; font-size: 11px; font-weight: 650; cursor: pointer; }
         .group-enter-btn:hover { border-color: rgba(239,68,68,.5); background: #29181d; }
+        .group-card-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+        .group-delete-btn { min-height: 34px; padding: 7px 9px; border: 1px solid rgba(239,68,68,.24); border-radius: 9px; background: rgba(127,29,29,.18); color: #ff9da4; font-size: 10px; cursor: pointer; }
+        .group-delete-btn:hover { border-color: rgba(239,68,68,.55); background: rgba(127,29,29,.34); }
         .group-detail-back { align-self: flex-start; margin: 0 0 12px; padding: 8px 11px; }
         .group-detail-title { margin-bottom: 8px; color: #fafafa; font-size: 19px; }
         .group-chat-composer { display: flex; gap: 8px; padding-top: 9px; border-top: 1px solid #25252d; }
@@ -334,6 +363,20 @@
         .group-sidebar-moderator { display: none; padding-top: 7px; }
         .group-workspace { min-width: 0; min-height: 0; flex: 1; flex-direction: column; overflow: hidden; padding: 0 !important; }
         .mobile-group-channels { display: none; }
+        .group-content-layout { display: flex; min-width: 0; min-height: 0; flex: 1; }
+        .group-channel-content { display: flex; min-width: 0; min-height: 0; flex: 1; flex-direction: column; overflow: hidden; }
+        .group-members-panel { display: flex; width: 232px; flex: 0 0 232px; flex-direction: column; gap: 10px; overflow-y: auto; padding: 18px 12px; border-left: 1px solid #202027; background: #0c0c10; }
+        .group-members-section { display: grid; align-content: start; gap: 4px; }
+        .group-members-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 5px 6px; color: #a1a1aa; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+        .group-members-heading span:last-child { color: #777783; font-weight: 600; letter-spacing: 0; }
+        .group-members-list { display: grid; align-content: start; gap: 3px; }
+        .group-members-empty { padding: 6px 5px; color: #777783; font-size: 11px; }
+        .group-member-item { display: flex; min-width: 0; align-items: center; gap: 9px; padding: 7px; border-radius: 9px; }
+        .group-member-item:hover { background: #17171d; }
+        .group-member-avatar { display: grid; width: 32px; height: 32px; flex: 0 0 32px; place-items: center; overflow: hidden; border: 1px solid #33313a; border-radius: 50%; background: linear-gradient(145deg, #bd3039, #701d25); background-position: center; background-size: cover; color: white; font-size: 12px; font-weight: 750; }
+        .group-member-copy { display: grid; min-width: 0; gap: 3px; }
+        .group-member-copy strong { overflow: hidden; color: #e4e4e7; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+        .group-member-copy span { color: #777783; font-size: 9px; }
         .group-workspace-header { display: flex; min-height: 62px; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 20px; border-bottom: 1px solid #22222a; background: #0d0d11; }
         .group-workspace-header-actions { display: flex; flex: 0 0 auto; gap: 6px; }
         .group-workspace-channel { display: flex; min-width: 0; align-items: center; gap: 11px; }
@@ -349,33 +392,53 @@
         .group-chat-composer .auth-input { min-height: 40px; border: 0; background: transparent; }
         .group-chat-composer .auth-btn { width: 40px; min-width: 40px; padding: 8px; border-radius: 10px; }
         .group-channel-status { min-height: 16px; padding-top: 5px; color: #888894; font-size: 10px; }
-        .group-voice-view { gap: 12px; background: radial-gradient(ellipse at 50% 40%, rgba(91,20,67,.16), transparent 48%), #09090c; }
-        .voice-stage-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-        .voice-stage-eyebrow { color: #b975ba; font-size: 9px; font-weight: 800; letter-spacing: .16em; }
-        .voice-stage-heading h4 { margin-top: 3px; color: #f4f4f5; font-size: 16px; }
-        .voice-stage-heading p { margin-top: 4px; color: #92929e; font-size: 11px; }
-        .voice-participant-count { padding: 6px 9px; border: 1px solid #29252e; border-radius: 999px; background: #121116; color: #bcbcc6; font-size: 10px; }
-        .voice-stage { display: grid; min-height: 180px; flex: 1; place-items: center; overflow: auto; padding: 12px; border: 1px solid #24232c; border-radius: 16px; background: radial-gradient(ellipse at 50% 0%, rgba(102,24,80,.17), transparent 55%), #0d0d11; }
-        .voice-empty-state { display: grid; justify-items: center; gap: 8px; padding: 18px; text-align: center; }
-        .voice-empty-art { display: flex; height: clamp(80px, 16vh, 155px); align-items: center; justify-content: center; gap: 14px; color: #ad6cc1; font-size: 23px; }
-        .voice-empty-art strong { display: grid; width: clamp(72px, 12vw, 120px); height: clamp(72px, 12vw, 120px); place-items: center; border: 1px solid rgba(201,117,219,.25); border-radius: 28px; background: radial-gradient(circle at 35% 25%, #8b48a3, #36143f 68%); box-shadow: 0 18px 60px rgba(141,40,153,.23); color: #f1d2ff; font-size: clamp(30px, 5vw, 52px); }
-        .voice-empty-state h4 { color: #f3f0f5; font-size: 14px; }
-        .voice-empty-state p { max-width: 300px; color: #92929e; font-size: 11px; line-height: 1.5; }
-        .group-media-grid { display: grid; width: 100%; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 10px; margin: 0; }
-        .group-media-tile { min-height: clamp(180px, 38vh, 440px); border-radius: 13px; background: #c5c5c5; }
-        .group-media-tile video { min-height: clamp(180px, 38vh, 440px); }
-        .voice-participant-tile { display: grid; place-items: center; background: radial-gradient(ellipse at 50% 28%, #38313d, #16141a 72%); }
+        .group-voice-view { gap: 14px; padding: 20px 24px 14px; background: #09090c; }
+        .voice-stage-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+        .voice-stage-eyebrow { color: #c58be0; font-size: 10px; font-weight: 800; letter-spacing: .16em; }
+        .voice-stage-heading h4 { margin-top: 5px; color: #f4f4f5; font-size: 22px; letter-spacing: -.025em; }
+        .voice-stage-heading p { margin-top: 5px; color: #a1a1aa; font-size: 12px; }
+        .voice-participant-count { padding: 7px 11px; border: 1px solid #29252e; border-radius: 999px; background: #121116; color: #dedee6; font-size: 11px; }
+        .voice-stage { display: grid; min-height: 260px; flex: 1; grid-template-columns: minmax(0, 1.65fr) minmax(260px, .9fr); gap: 14px; overflow: auto; padding: 14px; border: 1px solid #24232c; border-radius: 18px; background: #0b0b0e; }
+        .voice-participants-panel { display: grid; min-width: 0; min-height: 220px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr)); align-content: center; justify-items: center; gap: 12px; }
+        .voice-empty-state { display: grid; width: min(100%, 470px); min-height: 230px; align-content: center; justify-items: center; gap: 10px; padding: 24px; border: 1px solid #292933; border-radius: 16px; background: #16161b; text-align: center; }
+        .voice-empty-art { display: flex; align-items: center; justify-content: center; gap: 14px; color: #ad6cc1; font-size: 20px; }
+        .voice-empty-art strong { display: grid; width: 66px; height: 66px; place-items: center; border: 1px solid rgba(201,117,219,.25); border-radius: 22px; background: radial-gradient(circle at 35% 25%, #8b48a3, #36143f 68%); box-shadow: 0 18px 60px rgba(141,40,153,.23); color: #f1d2ff; font-size: 28px; }
+        .voice-empty-state h4 { color: #f3f0f5; font-size: 15px; }
+        .voice-empty-state p { max-width: 300px; color: #a1a1aa; font-size: 12px; line-height: 1.5; }
+        .group-media-grid { display: grid; width: 100%; grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr)); align-content: center; gap: 12px; margin: 0; }
+        .group-media-tile { width: 100%; min-width: 0; min-height: 0; aspect-ratio: 16 / 9; border-radius: 14px; background: #c5c5c5; }
+        .group-media-tile video { min-height: 0; }
+        .voice-participant-tile { display: grid; place-items: center; background: #c5c5c5; }
         .voice-participant-tile audio { display: none; }
-        .voice-participant-avatar { display: grid; width: 76px; height: 76px; place-items: center; border: 2px solid rgba(255,255,255,.68); border-radius: 50%; background: linear-gradient(145deg, #f3b8bd, #9d4751); box-shadow: 0 12px 35px rgba(0,0,0,.35); color: #fff; font-size: 28px; font-weight: 750; }
+        .voice-participant-avatar { display: grid; width: 76px; height: 76px; place-items: center; border: 2px solid rgba(255,255,255,.8); border-radius: 50%; background: linear-gradient(145deg, #f3b8bd, #9d4751); box-shadow: 0 12px 35px rgba(0,0,0,.2); color: #fff; font-size: 28px; font-weight: 750; }
         .voice-participant-avatar[hidden] { display: none; }
+        .voice-activity-panel { display: flex; min-width: 0; min-height: 220px; flex-direction: column; align-items: center; justify-content: center; gap: 18px; overflow: hidden; padding: 24px 18px; border: 1px solid #302332; border-radius: 16px; background: radial-gradient(ellipse at 50% 0%, #571144, #210923 60%, #100e17); text-align: center; }
+        .voice-activity-art { display: flex; min-height: 120px; align-items: center; justify-content: center; gap: 14px; color: #bb60ee; font-size: clamp(38px, 5vw, 68px); filter: drop-shadow(0 8px 20px rgba(201,37,223,.24)); }
+        .voice-activity-art span:last-child { font-size: clamp(46px, 6vw, 82px); }
+        .voice-activity-copy { display: grid; gap: 6px; }
+        .voice-activity-copy strong { color: #f5eafd; font-size: 14px; }
+        .voice-activity-copy span { color: #c1a9c5; font-size: 11px; line-height: 1.5; }
+        .voice-activity-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+        .voice-activity-button { min-height: 38px; padding: 8px 14px; border: 1px solid rgba(255,255,255,.16); border-radius: 10px; background: rgba(20,16,26,.8); color: #f4eaf8; font-size: 11px; font-weight: 700; cursor: pointer; }
+        .voice-activity-button:hover { border-color: rgba(220,150,255,.5); background: rgba(46,26,55,.92); }
+        .avatar-settings-card { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; padding: 16px; border: 1px solid #292933; border-radius: 14px; background: #111115; }
+        .avatar-settings-preview { width: 72px; height: 72px; flex: 0 0 72px; border: 2px solid #39333d; border-radius: 50%; background: linear-gradient(145deg, #bd3039, #701d25); background-position: center; background-size: cover; color: #fff; font-size: 25px; font-weight: 750; }
+        .avatar-settings-copy { display: grid; gap: 6px; }
+        .avatar-settings-copy strong { color: #f4f4f5; font-size: 13px; }
+        .avatar-settings-copy span { color: #92929e; font-size: 11px; line-height: 1.5; }
+        .avatar-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+        .avatar-settings-actions .settings-edit-btn { min-height: 34px; }
         .voice-participant-tile video { position: absolute; inset: 0; width: 100%; height: 100%; }
         .group-media-tile span { left: 12px; bottom: 12px; padding: 6px 9px; border-radius: 8px; }
-        .voice-call-dock { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px; border: 1px solid #27252e; border-radius: 15px; background: rgba(20,19,24,.95); }
-        .voice-control { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid #34313a; border-radius: 12px; background: #1b1a20; color: #efedf2; font-size: 16px; cursor: pointer; }
-        .voice-control:hover:not(:disabled) { border-color: #605567; background: #28232d; }
+        .voice-call-dock { display: flex; align-items: center; justify-content: center; gap: 9px; padding: 10px; border: 1px solid #27252e; border-radius: 16px; background: rgba(20,19,24,.95); box-shadow: 0 12px 30px rgba(0,0,0,.2); }
+        .voice-control { display: grid; width: 46px; height: 46px; place-items: center; border: 1px solid #34313a; border-radius: 14px; background: #1b1a20; color: #efedf2; font-size: 17px; cursor: pointer; transition: background .16s, border-color .16s, transform .16s; }
+        .voice-control:hover:not(:disabled) { transform: translateY(-1px); border-color: #605567; background: #28232d; }
         .voice-control:disabled { opacity: .38; cursor: not-allowed; }
         .voice-control.join { border-color: rgba(82,190,125,.28); background: #17452e; color: #d9ffeb; }
-        .voice-control.hangup { margin-left: 8px; border-color: #d73541; background: #d72d3b; color: white; }
+        .voice-control.join { display: flex; width: auto; min-width: 100px; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; font-size: 13px; font-weight: 750; }
+        .voice-control.join::before { content: "🎙"; font-size: 16px; }
+        .voice-control.hangup { width: 54px; margin-left: 8px; border-color: #d73541; border-radius: 999px; background: #d72d3b; color: white; }
+        #microphoneButton[aria-pressed="true"], #cameraButton[aria-pressed="true"], #screenShareButton[aria-pressed="true"] { border-color: rgba(239,68,68,.38); background: rgba(127,29,29,.36); color: #ffb0b5; }
         #voice-empty-state[hidden] { display: none; }
         .group-admin-tools { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 0; }
         .group-admin-tools input, .group-admin-tools select { min-width: 130px; flex: 1; }
@@ -530,6 +593,10 @@
         .tab-content[style*="padding:20px"] { padding: 24px !important; }
         #tab-Gruplar > h2, #tab-Arama > h2, #tab-Bildirim > h2 { margin: 4px 0 12px; color: #fafafa; letter-spacing: -.025em; }
         #tab-Gruplar.group-open { padding: 0 !important; }
+        .group-content-layout { position: relative; }
+        .group-members-panel { position: absolute; z-index: 15; top: 0; right: 0; bottom: 0; display: none; width: min(280px, 84vw); box-shadow: -16px 0 42px rgba(0,0,0,.5); }
+        .group-workspace.show-group-members .group-members-panel { display: flex; }
+        #mobileGroupMembersToggle { display: inline-flex !important; }
         #tab-Gruplar.group-open > .group-page-heading, #tab-Gruplar.group-open > #groups-status { display: none; }
         .group-workspace-active .story-bar { display: none; }
         .group-workspace-active .main-feed-area { overflow: hidden; }
@@ -660,12 +727,19 @@
             .group-workspace-back { padding: 7px 8px; }
             .group-text-view, .group-voice-view { padding: 10px; }
             .mobile-group-channels { display: flex; gap: 6px; overflow-x: auto; padding: 8px 10px; border-bottom: 1px solid #25252d; background: #101014; scrollbar-width: thin; }
-            .mobile-group-channels .group-channel { width: auto; flex: 0 0 auto; padding: 7px 9px; border-color: #292932; background: #16161c; }
-            .voice-stage { min-height: 200px; padding: 8px; }
-            .voice-call-dock { gap: 6px; padding: 6px; }
-            .voice-control { width: 39px; height: 39px; }
-            .group-media-grid { grid-template-columns: minmax(0, 1fr); }
-            .group-media-tile, .group-media-tile video { min-height: 200px; }
+            .mobile-group-channels .group-channel-row { flex: 0 0 auto; gap: 0; overflow: hidden; border: 1px solid #292932; border-radius: 9px; background: #16161c; }
+            .mobile-group-channels .group-channel { width: auto; flex: 0 0 auto; padding: 7px 9px; border: 0; background: transparent; }
+            .mobile-group-channels .group-channel-delete { width: 28px; height: 32px; flex-basis: 28px; opacity: 1; }
+            .group-voice-view { gap: 10px; padding: 12px; }
+            .voice-stage { min-height: 0; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 9px; }
+            .voice-participants-panel { min-height: 190px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+            .voice-activity-panel { min-height: 210px; }
+            .voice-call-dock { gap: 6px; padding: 7px; }
+            .voice-control { width: 42px; height: 42px; }
+            .voice-control.join { width: auto; min-width: 88px; padding: 0 11px; font-size: 12px; }
+            .voice-control.hangup { width: 48px; }
+            .group-media-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+            .group-media-tile { min-height: 0; }
         }
         .far-left-bar { gap: 10px; padding-top: 16px; }
         .left-icon { width: 42px; height: 42px; color: #9797a4; }
@@ -704,6 +778,15 @@
             .reel-search input { padding: 10px; font-size: 12px; }
             .reel-search .auth-btn { flex: 0 0 auto; padding: 9px 11px; font-size: 12px; }
             .youtube-search-results { grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 8px; }
+            .recommended-video-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 9px; }
+            .recommended-video-card { border-radius: 11px; }
+            .recommended-video-copy { padding: 8px 8px 3px; }
+            .recommended-video-copy strong { font-size: 11px; }
+            .video-personal-actions { gap: 4px; padding: 6px; }
+            .video-personal-action { min-height: 28px; padding: 5px 6px; font-size: 9px; }
+            .video-section-heading h3 { font-size: 13px; }
+            .video-section-heading p { max-width: 200px; line-height: 1.4; }
+            .video-section-heading .youtube-play-selected { padding: 7px 8px; font-size: 10px; }
             .youtube-result-copy { gap: 4px; padding: 8px; }
             .youtube-result-copy strong { font-size: 11px; }
             .youtube-result-copy span { font-size: 10px; }
@@ -740,7 +823,7 @@
     <div id="auth-screen">
         <div class="auth-card">
             <section class="auth-showcase" aria-label="RustCord tanıtımı">
-                <div class="auth-brand"><span class="auth-brand-mark">⚡</span><span>RUSTCORD RED</span></div>
+                <div class="auth-brand"><span class="auth-brand-mark" aria-hidden="true"><svg class="site-logo-bolt" viewBox="0 0 20 28"><path d="M11.4 0 2 15.1h6.3L7.1 28 18 10.5h-6.5L14 0z"></path></svg></span><span>RUSTCORD RED</span></div>
                 <div class="auth-showcase-copy">
                     <div class="auth-eyebrow">Birlikte daha yakın</div>
                     <h1>Topluluğun burada başlıyor.</h1>
@@ -845,6 +928,20 @@
 
             <div id="settings-account" class="settings-panel active">
                 <div class="settings-section-title">Hesap Bilgileri</div>
+                <section class="avatar-settings-card" aria-label="Profil fotoğrafı">
+                    <div id="avatarSettingsPreview" class="avatar-settings-preview" aria-label="Profil fotoğrafı önizlemesi">K</div>
+                    <div class="avatar-settings-copy">
+                        <strong>Profil fotoğrafı</strong>
+                        <span>PNG, JPG veya WebP · En fazla 512 KB</span>
+                        <div class="avatar-settings-actions">
+                            <label class="settings-edit-btn" for="avatarFileInput">Fotoğraf seç</label>
+                            <input id="avatarFileInput" type="file" accept="image/png,image/jpeg,image/webp" hidden onchange="previewProfileAvatar(event)">
+                            <button id="saveAvatarButton" class="settings-edit-btn" type="button" onclick="saveProfileAvatar()" disabled>Kaydet</button>
+                            <button id="removeAvatarButton" class="settings-edit-btn" type="button" onclick="removeProfileAvatar()">Kaldır</button>
+                        </div>
+                        <div id="avatar-status" class="status-message" role="status"></div>
+                    </div>
+                </section>
                 <div class="settings-row">
                     <span class="settings-label">Kullanıcı Adı</span>
                     <div class="settings-val"><span id="set-nick">-</span> <button class="settings-edit-btn" onclick="editNickname()">Düzenle</button></div>
@@ -892,7 +989,7 @@
     <div id="app-screen">
 
         <div class="far-left-bar">
-            <div class="brand-logo" aria-label="RustCord">⚡</div>
+            <button class="brand-logo" type="button" aria-label="Boş ekrana geç" title="Boş ekrana geç" onclick="window.location.replace('about:blank')"><svg class="site-logo-bolt" viewBox="0 0 20 28" aria-hidden="true"><path d="M11.4 0 2 15.1h6.3L7.1 28 18 10.5h-6.5L14 0z"></path></svg></button>
             <button class="left-icon active" type="button" id="icon-Ev" aria-label="Ana sayfa" title="Ana sayfa" onclick="switchTab('Ev')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"></path></svg></button>
             <button class="left-icon" type="button" id="icon-Mesaj" aria-label="Mesajlar" title="Mesajlar" onclick="switchTab('Mesaj')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.5 9 9 0 0 1-4-.9L4 20l1.2-3.2A7 7 0 0 1 4 12c0-4.1 3.6-7.5 8-7.5s8 3.1 8 7z"></path><path d="M8 11h8M8 14h5"></path></svg></button>
             <button class="left-icon" type="button" id="icon-Bildirim" aria-label="Bildirimler" title="Bildirimler" onclick="switchTab('Bildirim')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"></path></svg></button>
@@ -924,6 +1021,7 @@
                     <button class="group-sidebar-close" type="button" title="Kapat" aria-label="Kapat" onclick="closeGroupChannelSidebar()">×</button>
                 </div>
                 <div id="groupCategories" class="group-categories-list"></div>
+                <div id="groupChannelPermissionHint" class="group-channel-permission-hint" hidden>Kanal eklemek için grup kurucusu veya moderatörü olmalısın.</div>
                 <div id="group-settings-status" class="status-message" role="status"></div>
                 <details id="groupAdminTools" class="group-admin-sidebar" style="display:none;">
                     <summary>＋ Kanal ekle</summary>
@@ -1048,10 +1146,15 @@
                             </div>
                         </div>
                         <div class="group-workspace-header-actions">
-                            <button id="mobileAddGroupChannel" class="group-workspace-back" type="button" style="display:none;" onclick="openMobileGroupChannelCreator()">＋ Kanal</button>
+                            <button id="mobileAddTextChannel" class="group-workspace-back" type="button" style="display:none;" onclick="openMobileGroupChannelCreator('text')">＋ Metin</button>
+                            <button id="mobileAddVoiceChannel" class="group-workspace-back" type="button" style="display:none;" onclick="openMobileGroupChannelCreator('voice')">＋ Ses</button>
+                            <button id="mobileGroupMembersToggle" class="group-workspace-back" type="button" style="display:none;" onclick="toggleGroupMembers()">Üyeler</button>
+                            <button id="deleteActiveGroupButton" class="group-delete-btn" type="button" style="display:none;" onclick="deleteActiveGroup()">Grubu sil</button>
                             <button class="group-workspace-back" type="button" onclick="returnToGroups()">Grup listesi</button>
                         </div>
                     </header>
+                    <div class="group-content-layout">
+                        <div class="group-channel-content">
                     <section id="groupTextChannelView" class="group-text-view">
                         <div id="group-chat-messages" class="group-message-list" aria-live="polite"></div>
                         <form class="group-chat-composer" onsubmit="sendGroupMessage(event)">
@@ -1070,15 +1173,28 @@
                             <span id="voiceParticipantCount" class="voice-participant-count">0 kişi</span>
                         </div>
                         <div class="voice-stage">
-                            <div id="voice-empty-state" class="voice-empty-state">
-                                <div class="voice-empty-art" aria-hidden="true"><span>✦</span><strong>◉</strong><span>✧</span></div>
-                                <h4>Ses kanalına katıl</h4>
-                                <p>Mikrofon izni vererek arkadaşlarınla canlı sohbete başlayabilirsin.</p>
+                            <div class="voice-participants-panel">
+                                <div id="voice-empty-state" class="voice-empty-state">
+                                    <div class="voice-empty-art" aria-hidden="true"><span>✦</span><strong>◉</strong><span>✧</span></div>
+                                    <h4>Ses kanalına katıl</h4>
+                                    <p>Mikrofon izni vererek arkadaşlarınla canlı sohbete başlayabilirsin.</p>
+                                </div>
+                                <div id="group-media-grid" class="group-media-grid" aria-label="Ses odası katılımcıları"></div>
                             </div>
-                            <div id="group-media-grid" class="group-media-grid" aria-label="Ses odası katılımcıları"></div>
+                            <aside class="voice-activity-panel" aria-label="Ses kanalı aktiviteleri">
+                                <div class="voice-activity-art" aria-hidden="true"><span>🎮</span><span>🏆</span><span>💎</span></div>
+                                <div class="voice-activity-copy">
+                                    <strong>Birlikte takılın</strong>
+                                    <span>Ekranını paylaş veya arkadaşlarınla birlikte video keşfet.</span>
+                                </div>
+                                <div class="voice-activity-actions">
+                                    <button class="voice-activity-button" type="button" onclick="toggleScreenShare()">▣ Ekranını paylaş</button>
+                                    <button class="voice-activity-button" type="button" onclick="switchTab('Reels')">▶ Video keşfet</button>
+                                </div>
+                            </aside>
                         </div>
                         <div class="voice-call-dock" aria-label="Ses kanalı kontrolleri">
-                            <button id="voiceJoinButton" class="voice-control join" type="button" onclick="joinVoiceRoom()" aria-label="Ses kanalına katıl" title="Ses kanalına katıl">🎙</button>
+                            <button id="voiceJoinButton" class="voice-control join" type="button" onclick="joinVoiceRoom()" aria-label="Ses kanalına katıl" title="Ses kanalına katıl">Katıl</button>
                             <button id="microphoneButton" class="voice-control" type="button" onclick="toggleGroupMicrophone()" disabled aria-label="Mikrofonu sustur" title="Mikrofonu sustur">🎙</button>
                             <button id="cameraButton" class="voice-control" type="button" onclick="toggleGroupCamera()" disabled aria-label="Kamerayı aç" title="Kamerayı aç">▣</button>
                             <button id="screenShareButton" class="voice-control" type="button" onclick="toggleScreenShare()" disabled aria-label="Ekranı paylaş" title="Ekranı paylaş">▤</button>
@@ -1086,6 +1202,24 @@
                         </div>
                         <div id="voice-chat-status" class="group-channel-status" role="status"></div>
                     </section>
+                        </div>
+                        <aside class="group-members-panel" aria-label="Grup üyeleri">
+                            <section class="group-members-section" aria-label="Çevrim içi üyeler">
+                                <div class="group-members-heading">
+                                    <span>ÇEVRİM İÇİ</span>
+                                    <span id="groupOnlineCount">0</span>
+                                </div>
+                                <div id="groupOnlineMembersList" class="group-members-list" aria-live="polite"></div>
+                            </section>
+                            <section class="group-members-section" aria-label="Çevrim dışı üyeler">
+                                <div class="group-members-heading">
+                                    <span>ÇEVRİM DIŞI</span>
+                                    <span id="groupOfflineCount">0</span>
+                                </div>
+                                <div id="groupOfflineMembersList" class="group-members-list" aria-live="polite"></div>
+                            </section>
+                        </aside>
+                    </div>
                 </section>
             </div>
 
@@ -1106,11 +1240,25 @@
             <div id="tab-Reels" class="tab-content">
                 <div class="reels-container">
                     <h2 style="color: #ef4444; font-size: 18px; margin-top: 4px;">🎬 Video keşfet</h2>
-                    <div style="color:#92929e;font-size:12px;text-align:center;">Ara, sonuçları dikey Shorts akışında kaydırarak izle. YouTube araması 4 dakikadan kısa videoları bulur; hepsi mutlaka Shorts olmayabilir.</div>
+                    <section class="video-section-heading">
+                        <div>
+                            <h3>YouTube video önerileri</h3>
+                            <p>YouTube'dan gerçek videolar. Yeniledikçe başka konular keşfet.</p>
+                        </div>
+                        <button id="refreshRecommendationsButton" class="youtube-play-selected" type="button" onclick="loadYouTubeRecommendations(true)">↻ Önerileri yenile</button>
+                    </section>
+                    <div id="recommendationStatus" class="status-message" role="status" aria-live="polite"></div>
+                    <div id="recommendedVideoGrid" class="recommended-video-grid"></div>
                     <form class="reel-search" onsubmit="searchYouTube(event)">
                         <input id="youtubeSearch" type="search" placeholder="YouTube'da video ara..." aria-label="YouTube'da video ara">
                         <button id="youtubeSearchButton" class="auth-btn" type="submit">Sitede ara</button>
                     </form>
+                    <section class="video-section-heading">
+                        <div>
+                            <h3>YouTube Shorts</h3>
+                            <p>Arama sonuçlarını dikey akışta kaydırarak izle.</p>
+                        </div>
+                    </section>
                     <div id="youtube-search-status" class="status-message" role="status" aria-live="polite"></div>
                     <div class="youtube-search-toolbar">
                         <span id="youtubeSelectionLabel">Arama sonuçları burada görünecek.</span>
@@ -1121,6 +1269,21 @@
                     <div id="shortsFeed" class="shorts-feed" aria-label="Kaydırmalı kısa video akışı" hidden></div>
                     <div id="reelsList" style="display:contents;"></div>
                 </div>
+            </div>
+
+            <div id="tab-Favoriler" class="tab-content" style="padding:20px;">
+                <div class="search-page-heading">
+                    <div>
+                        <h2>Beğenilenler ve favoriler</h2>
+                        <p>Videoların yalnızca hesabında saklanır.</p>
+                    </div>
+                </div>
+                <div class="video-collection-tabs" role="tablist" aria-label="Kişisel video listeleri">
+                    <button class="video-collection-tab active" type="button" role="tab" aria-selected="true" data-collection="favorites" onclick="selectVideoCollection('favorites')">Favoriler</button>
+                    <button class="video-collection-tab" type="button" role="tab" aria-selected="false" data-collection="liked" onclick="selectVideoCollection('liked')">Beğenilenler</button>
+                </div>
+                <div id="videoCollectionsStatus" class="status-message" role="status"></div>
+                <div id="videoCollectionGrid" class="video-collection-grid"></div>
             </div>
 
             <div id="tab-Bildirim" class="tab-content" style="padding:20px;">
@@ -1147,6 +1310,10 @@
             </div>
             <div class="menu-btn" id="btn-Reels" onclick="switchTab('Reels')">
                 <div style="display:flex; align-items:center; gap:12px;"><span class="menu-btn-icon">🎬</span> <span>Reels - Video</span></div>
+                <span>›</span>
+            </div>
+            <div class="menu-btn" id="btn-Favoriler" onclick="switchTab('Favoriler')">
+                <div style="display:flex; align-items:center; gap:12px;"><span class="menu-btn-icon">♥</span> <span>Beğenilenler / Favoriler</span></div>
                 <span>›</span>
             </div>
             <div class="menu-btn" id="btn-Bildirim" onclick="switchTab('Bildirim')">
@@ -1178,6 +1345,7 @@
                 </div>
                 <div class="mobile-menu-grid">
                     <button class="mobile-menu-item" type="button" onclick="switchTab('Arama')"><span>🕒</span>Arama geçmişi</button>
+                    <button class="mobile-menu-item" type="button" onclick="switchTab('Favoriler')"><span>♥</span>Beğenilenler / Favoriler</button>
                     <button class="mobile-menu-item" type="button" onclick="switchTab('Bildirim')"><span>🔔</span>Haberler</button>
                     <button class="mobile-menu-item" type="button" onclick="closeMobileMenu();openModal('friend-modal')"><span>＋</span>Arkadaş ekle</button>
                     <button class="mobile-menu-item" type="button" onclick="closeMobileMenu();openSettings()"><span>👤</span>Profil ve ayarlar</button>
@@ -1412,12 +1580,17 @@
         let turnstileWidgetId = null;
         let turnstileToken = '';
         let sessionToken = localStorage.getItem('mortex_session') || '';
+        let profileAvatarUrl = null;
+        let pendingAvatarUrl = null;
+        let friendAvatars = {};
         let communitySocket = null;
         let groupSocket = null;
+        let groupSocketAttempt = null;
         let activeGroupId = null;
         let activeGroup = null;
         let activeGroupChannel = null;
         let cachedGroups = [];
+        let groupMembers = [];
         let activeStoryIndex = -1;
         let refreshTouchStart = null;
         const groupPeerId = crypto.randomUUID();
@@ -1431,6 +1604,9 @@
         const groupPeerConnections = new Map();
         let reels = [];
         let youtubeSearchResults = [];
+        let recommendedVideos = [];
+        let videoCollections = { liked: [], favorites: [] };
+        let activeVideoCollection = 'favorites';
         let shortsFeedObserver = null;
         let searchHistory = [];
         let selectedYouTubeVideo = null;
@@ -1446,6 +1622,79 @@
                 console.error(`Geçersiz yerel veri (${key}):`, error);
                 return fallback;
             }
+        }
+
+        function applyAvatar(element, avatarUrl, fallbackText) {
+            if (!element) return;
+            element.textContent = avatarUrl ? '' : fallbackText;
+            element.style.backgroundImage = avatarUrl
+                ? `url("${avatarUrl}")`
+                : '';
+            element.style.backgroundSize = 'cover';
+            element.style.backgroundPosition = 'center';
+        }
+
+        function updateProfileAvatarView() {
+            const previewUrl = pendingAvatarUrl ?? profileAvatarUrl;
+            const fallback = myNick.charAt(0).toLocaleUpperCase('tr') || 'K';
+            applyAvatar(document.getElementById('myAvatar'), profileAvatarUrl, fallback);
+            applyAvatar(document.getElementById('avatarSettingsPreview'), previewUrl, fallback);
+            document.getElementById('removeAvatarButton').disabled = !profileAvatarUrl;
+            document.getElementById('saveAvatarButton').disabled = pendingAvatarUrl === null;
+        }
+
+        function previewProfileAvatar(event) {
+            const file = event.target.files?.[0];
+            const status = document.getElementById('avatar-status');
+            if (!file) return;
+            if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+                status.textContent = 'PNG, JPG veya WebP dosyası seç.';
+                event.target.value = '';
+                return;
+            }
+            if (file.size > 512 * 1024) {
+                status.textContent = 'Fotoğraf 512 KB’tan küçük olmalı.';
+                event.target.value = '';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => {
+                if (typeof reader.result !== 'string') {
+                    status.textContent = 'Fotoğraf okunamadı.';
+                    return;
+                }
+                pendingAvatarUrl = reader.result;
+                status.textContent = '';
+                updateProfileAvatarView();
+            };
+            reader.onerror = () => { status.textContent = 'Fotoğraf okunamadı.'; };
+            reader.readAsDataURL(file);
+        }
+
+        async function saveProfileAvatar(avatarUrl = pendingAvatarUrl) {
+            const status = document.getElementById('avatar-status');
+            const saveButton = document.getElementById('saveAvatarButton');
+            saveButton.disabled = true;
+            status.textContent = 'Profil fotoğrafı kaydediliyor...';
+            try {
+                const user = await apiRequest('/api/auth/avatar', {
+                    method: 'POST',
+                    body: JSON.stringify({ avatar_url: avatarUrl })
+                });
+                profileAvatarUrl = user.avatar_url;
+                pendingAvatarUrl = null;
+                document.getElementById('avatarFileInput').value = '';
+                updateProfileAvatarView();
+                updateLocalGroupTile();
+                status.textContent = 'Profil fotoğrafın kaydedildi.';
+            } catch (error) {
+                status.textContent = error.message;
+                updateProfileAvatarView();
+            }
+        }
+
+        function removeProfileAvatar() {
+            if (profileAvatarUrl) void saveProfileAvatar(null);
         }
 
         function toggleGroupMicrophone() {
@@ -1509,6 +1758,7 @@
                 const user = await apiRequest('/api/auth/me');
                 myNick = user.nick;
                 myEmail = user.email;
+                profileAvatarUrl = user.avatar_url || null;
                 setupUserUI();
             } catch (error) {
                 localStorage.removeItem('mortex_session');
@@ -1601,6 +1851,7 @@
                 localStorage.setItem('mortex_session', sessionToken);
                 myNick = result.nick;
                 myEmail = result.email;
+                profileAvatarUrl = result.avatar_url || null;
                 document.getElementById('regPass').value = '';
                 setupUserUI();
                 status.textContent = '';
@@ -1615,7 +1866,7 @@
 
         function setupUserUI() {
             document.getElementById('myName').textContent = myNick;
-            document.getElementById('myAvatar').textContent = myNick.charAt(0).toUpperCase();
+            updateProfileAvatarView();
             document.getElementById('set-nick').textContent = myNick;
             document.getElementById('set-email').textContent = myEmail;
             document.getElementById('auth-screen').style.display = 'none';
@@ -1624,6 +1875,8 @@
             loadGroups();
             loadFriends();
             loadStories();
+            loadVideoCollections();
+            loadYouTubeRecommendations();
         }
 
         async function handleLogout() {
@@ -1744,6 +1997,7 @@
                 if (selectedDmNick) loadDirectMessages();
             }
             if (tabName === 'Gruplar') loadGroups();
+            if (tabName === 'Favoriler') loadVideoCollections();
         }
 
         function toggleMobileMenu() {
@@ -1814,7 +2068,7 @@
                     item.dataset.nick = friend;
                     const avatar = document.createElement('div');
                     avatar.className = 'avatar-img';
-                    avatar.textContent = friend.charAt(0).toUpperCase();
+                    applyAvatar(avatar, friendAvatars[friend] || null, friend.charAt(0).toLocaleUpperCase('tr'));
                     const avatarWrap = document.createElement('div');
                     avatarWrap.className = 'avatar-wrap';
                     avatarWrap.append(avatar);
@@ -1883,6 +2137,7 @@
                     throw new Error('Arkadaş listesi sunucudan beklenmeyen biçimde geldi.');
                 }
                 friends = friendList;
+                friendAvatars = result?.friend_avatars || {};
                 friendRequests = requests;
                 renderFriends();
                 renderMobileFriends();
@@ -2271,8 +2526,20 @@
                     enter.textContent = 'Aç';
                     enter.setAttribute('aria-label', `${group.name} grubunu aç`);
                     enter.addEventListener('click', () => openGroup(group));
+                    const actions = document.createElement('div');
+                    actions.className = 'group-card-actions';
+                    actions.appendChild(enter);
+                    if (group.role === 'founder') {
+                        const deleteButton = document.createElement('button');
+                        deleteButton.className = 'group-delete-btn';
+                        deleteButton.type = 'button';
+                        deleteButton.textContent = 'Sil';
+                        deleteButton.setAttribute('aria-label', `${group.name} grubunu sil`);
+                        deleteButton.addEventListener('click', () => { void deleteGroup(group); });
+                        actions.appendChild(deleteButton);
+                    }
                     copy.append(name, count);
-                    card.append(mark, copy, enter);
+                    card.append(mark, copy, actions);
                     list.appendChild(card);
                 });
                 if (!groups.length) {
@@ -2285,6 +2552,37 @@
             } catch (error) {
                 status.textContent = error.message;
             }
+        }
+
+        async function deleteGroup(group) {
+            if (!group) return;
+            if (!confirm(`“${group.name}” grubunu ve içindeki tüm kanalları silmek istediğine emin misin? Bu işlem geri alınamaz.`)) return;
+            try {
+                await apiRequest(`/api/groups/${group.id}`, { method: 'DELETE' });
+                if (activeGroupId === group.id) {
+                    leaveVoiceRoom();
+                    groupSocket?.close();
+                    groupSocket = null;
+                    voiceSocketReady = false;
+                    activeGroup = null;
+                    activeGroupId = null;
+                    activeGroupChannel = null;
+                    document.querySelector('.left-sidebar').classList.remove('group-mode');
+                    document.getElementById('tab-Gruplar').classList.remove('group-open');
+                    document.getElementById('app-screen').classList.remove('group-workspace-active');
+                    document.getElementById('groupDetail').style.display = 'none';
+                    document.getElementById('createGroupForm').style.display = 'flex';
+                    document.getElementById('groupsList').style.display = '';
+                }
+                await loadGroups();
+                document.getElementById('groups-status').textContent = 'Grup silindi.';
+            } catch (error) {
+                document.getElementById('groups-status').textContent = error.message;
+            }
+        }
+
+        async function deleteActiveGroup() {
+            if (activeGroup) await deleteGroup(activeGroup);
         }
 
         async function addGroupChannel(event) {
@@ -2306,6 +2604,45 @@
                 document.getElementById('groupAdminTools').open = false;
                 document.getElementById('app-screen').classList.remove('mobile-channel-admin-open');
                 status.textContent = 'Kanal eklendi.';
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        }
+
+        async function deleteGroupChannel(channel) {
+            if (!activeGroup || !channel) return;
+            if (!confirm(`“${channel.name}” kanalını silmek istediğine emin misin? Bu işlem geri alınamaz.`)) return;
+            const status = document.getElementById('group-settings-status');
+            const wasActiveChannel = activeGroupChannel?.id === channel.id;
+            try {
+                activeGroup = await apiRequest(
+                    `/api/groups/${activeGroup.id}/channels/${encodeURIComponent(channel.id)}`,
+                    { method: 'DELETE' }
+                );
+                if (wasActiveChannel) {
+                    if (voiceActive) leaveVoiceRoom();
+                    if (groupSocket) groupSocket.close();
+                    groupSocket = null;
+                    voiceSocketReady = false;
+                    activeGroupChannel = null;
+                }
+                renderGroupCategories(activeGroup);
+                if (wasActiveChannel) {
+                    const channels = activeGroup.categories.flatMap(category => category.channels);
+                    const nextChannel = channels.find(item => item.kind === 'text') || channels[0];
+                    if (nextChannel) {
+                        selectGroupChannel(nextChannel);
+                    } else {
+                        document.getElementById('groupTitle').textContent = activeGroup.name;
+                        document.getElementById('groupChannelHeaderMeta').textContent = 'Henüz kanal yok. Yeni bir metin veya ses kanalı ekleyebilirsin.';
+                        document.getElementById('groupTextChannelView').style.display = 'none';
+                        document.getElementById('groupVoiceChannelView').style.display = 'none';
+                        document.getElementById('groupChannelHeaderIcon').textContent = '＋';
+                        updateVoiceControls();
+                    }
+                }
+                await loadGroups();
+                status.textContent = 'Kanal silindi.';
             } catch (error) {
                 status.textContent = error.message;
             }
@@ -2341,9 +2678,9 @@
             window.requestAnimationFrame(() => channelNameInput.focus());
         }
 
-        function openMobileGroupChannelCreator() {
+        function openMobileGroupChannelCreator(kind) {
             const category = activeGroup?.categories[0];
-            if (category) openGroupChannelCreator(category.name, 'text');
+            if (category) openGroupChannelCreator(category.name, kind);
         }
 
         function closeGroupChannelSidebar() {
@@ -2374,13 +2711,13 @@
                     const actions = document.createElement('div');
                     actions.className = 'group-category-heading-actions';
                     [
-                        { kind: 'text', label: `${category.name} metin kanalı oluştur` },
-                        { kind: 'voice', label: `${category.name} ses odası oluştur` }
+                        { kind: 'text', label: `${category.name} metin kanalı oluştur`, icon: '＋', text: 'Metin' },
+                        { kind: 'voice', label: `${category.name} ses odası oluştur`, icon: '＋', text: 'Ses' }
                     ].forEach(action => {
                         const addButton = document.createElement('button');
                         addButton.type = 'button';
                         addButton.className = 'group-category-add';
-                        addButton.textContent = '+';
+                        addButton.textContent = `${action.icon} ${action.text}`;
                         addButton.title = action.label;
                         addButton.setAttribute('aria-label', action.label);
                         addButton.dataset.channelKind = action.kind;
@@ -2393,35 +2730,52 @@
                 const channelList = document.createElement('div');
                 channelList.className = 'group-channel-list';
                 category.channels.forEach(channel => {
-                    const item = document.createElement('button');
-                    item.type = 'button';
-                    item.className = `group-channel${activeGroupChannel?.id === channel.id ? ' active' : ''}`;
-                    const icon = document.createElement('span');
-                    icon.className = 'group-channel-icon';
-                    icon.textContent = channel.kind === 'voice' ? '◖' : '#';
-                    const name = document.createElement('span');
-                    name.className = 'group-channel-name';
-                    name.textContent = channel.name;
-                    item.append(icon, name);
-                    item.setAttribute('aria-current', activeGroupChannel?.id === channel.id ? 'page' : 'false');
-                    item.addEventListener('click', () => selectGroupChannel(channel));
-                    channelList.appendChild(item);
-                    const mobileItem = item.cloneNode(true);
-                    mobileItem.addEventListener('click', () => selectGroupChannel(channel));
-                    mobileChannels.appendChild(mobileItem);
+                    channelList.appendChild(createGroupChannelRow(channel, canManageChannels));
+                    mobileChannels.appendChild(createGroupChannelRow(channel, canManageChannels));
                 });
                 section.appendChild(channelList);
                 container.appendChild(section);
             });
             const canManageChannels = group.role === 'founder' || group.role === 'moderator';
             document.getElementById('groupAdminTools').style.display = canManageChannels ? 'block' : 'none';
-            const mobileAddChannel = document.getElementById('mobileAddGroupChannel');
-            mobileAddChannel.style.display = canManageChannels ? 'inline-flex' : 'none';
+            document.getElementById('groupChannelPermissionHint').hidden = canManageChannels;
+            document.getElementById('mobileAddTextChannel').style.display = canManageChannels ? 'inline-flex' : 'none';
+            document.getElementById('mobileAddVoiceChannel').style.display = canManageChannels ? 'inline-flex' : 'none';
             document.getElementById('groupModeratorTools').style.display = group.role === 'founder' ? 'block' : 'none';
             document.getElementById('groupModeratorForm').style.display = group.role === 'founder' ? 'grid' : 'none';
             document.getElementById('groupSidebarName').textContent = group.name;
             document.getElementById('groupSidebarMeta').textContent = `${group.members_count} üye · ${group.role === 'founder' ? 'Kurucu' : group.role === 'moderator' ? 'Moderatör' : 'Üye'}`;
+            document.getElementById('deleteActiveGroupButton').style.display = group.role === 'founder' ? 'inline-flex' : 'none';
             renderGroupServerRail();
+        }
+
+        function createGroupChannelRow(channel, canManageChannels) {
+            const row = document.createElement('div');
+            row.className = 'group-channel-row';
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = `group-channel${activeGroupChannel?.id === channel.id ? ' active' : ''}`;
+            const icon = document.createElement('span');
+            icon.className = 'group-channel-icon';
+            icon.textContent = channel.kind === 'voice' ? '◖' : '#';
+            const name = document.createElement('span');
+            name.className = 'group-channel-name';
+            name.textContent = channel.name;
+            item.append(icon, name);
+            item.setAttribute('aria-current', activeGroupChannel?.id === channel.id ? 'page' : 'false');
+            item.addEventListener('click', () => selectGroupChannel(channel));
+            row.appendChild(item);
+            if (canManageChannels) {
+                const deleteButton = document.createElement('button');
+                deleteButton.type = 'button';
+                deleteButton.className = 'group-channel-delete';
+                deleteButton.textContent = '×';
+                deleteButton.title = `${channel.name} kanalını sil`;
+                deleteButton.setAttribute('aria-label', `${channel.name} kanalını sil`);
+                deleteButton.addEventListener('click', () => { void deleteGroupChannel(channel); });
+                row.appendChild(deleteButton);
+            }
+            return row;
         }
 
         function renderGroupServerRail(groups = cachedGroups) {
@@ -2443,6 +2797,7 @@
 
         function selectGroupChannel(channel) {
             if (!activeGroup || !channel) return;
+            document.getElementById('groupDetail').classList.remove('show-group-members');
             if (voiceActive) leaveVoiceRoom();
             if (groupSocket) {
                 groupSocket.close();
@@ -2471,40 +2826,52 @@
         }
 
         function connectGroupChannel(group, channel) {
+            const attempt = {};
+            groupSocketAttempt = attempt;
             const wsBase = new URL(API_BASE);
             wsBase.protocol = wsBase.protocol === 'https:' ? 'wss:' : 'ws:';
-            const socket = new WebSocket(
-                `${wsBase.origin}/ws/groups/${encodeURIComponent(group.id)}/${encodeURIComponent(channel.id)}`
-            );
-            groupSocket = socket;
             const statusId = channel.kind === 'voice' ? 'voice-chat-status' : 'group-chat-status';
             document.getElementById(statusId).textContent = 'Kanala bağlanılıyor...';
             voiceSocketReady = false;
             updateVoiceControls();
-            socket.onopen = () => {
-                if (groupSocket !== socket) return;
-                voiceSocketReady = true;
-                updateVoiceControls();
-                document.getElementById(statusId).textContent = channel.kind === 'voice'
-                    ? 'Ses kanalı hazır.'
-                    : 'Kanala bağlandın.';
-            };
-            socket.onmessage = event => {
-                if (groupSocket !== socket || activeGroupId !== group.id || activeGroupChannel?.id !== channel.id) return;
-                handleGroupSocketMessage(event.data, group.id, channel.id).catch(error => {
-                    document.getElementById(statusId).textContent = `Kanal bağlantısı hatası: ${error.message}`;
-                });
-            };
-            socket.onerror = () => {
-                if (groupSocket === socket) document.getElementById(statusId).textContent = 'Kanala bağlanılamadı.';
-            };
-            socket.onclose = () => {
-                if (groupSocket !== socket) return;
-                voiceSocketReady = false;
-                if (voiceActive) leaveVoiceRoom();
-                updateVoiceControls();
-                document.getElementById(statusId).textContent = 'Kanal bağlantısı kapandı.';
-            };
+            (async () => {
+                try {
+                    const result = await apiRequest('/api/auth/websocket-ticket', { method: 'POST' });
+                    if (groupSocketAttempt !== attempt || activeGroupId !== group.id || activeGroupChannel?.id !== channel.id) return;
+                    const socket = new WebSocket(
+                        `${wsBase.origin}/ws/groups/${encodeURIComponent(group.id)}/${encodeURIComponent(channel.id)}?ticket=${encodeURIComponent(result.ticket)}`
+                    );
+                    groupSocket = socket;
+                    socket.onopen = () => {
+                        if (groupSocket !== socket) return;
+                        voiceSocketReady = true;
+                        updateVoiceControls();
+                        document.getElementById(statusId).textContent = channel.kind === 'voice'
+                            ? 'Ses kanalı hazır.'
+                            : 'Kanala bağlandın.';
+                    };
+                    socket.onmessage = event => {
+                        if (groupSocket !== socket || activeGroupId !== group.id || activeGroupChannel?.id !== channel.id) return;
+                        handleGroupSocketMessage(event.data, group.id, channel.id).catch(error => {
+                            document.getElementById(statusId).textContent = `Kanal bağlantısı hatası: ${error.message}`;
+                        });
+                    };
+                    socket.onerror = () => {
+                        if (groupSocket === socket) document.getElementById(statusId).textContent = 'Kanala bağlanılamadı.';
+                    };
+                    socket.onclose = () => {
+                        if (groupSocket !== socket) return;
+                        voiceSocketReady = false;
+                        if (voiceActive) leaveVoiceRoom();
+                        updateVoiceControls();
+                        document.getElementById(statusId).textContent = 'Kanal bağlantısı kapandı.';
+                    };
+                } catch (error) {
+                    if (groupSocketAttempt === attempt && activeGroupId === group.id && activeGroupChannel?.id === channel.id) {
+                        document.getElementById(statusId).textContent = `Kanala bağlanılamadı: ${error.message}`;
+                    }
+                }
+            })();
         }
 
         function openGroup(group) {
@@ -2518,13 +2885,17 @@
             document.getElementById('groupsList').style.display = 'none';
             document.getElementById('groups-status').textContent = '';
             document.getElementById('groupDetail').style.display = 'flex';
+            document.getElementById('groupDetail').classList.remove('show-group-members');
             document.getElementById('group-settings-status').textContent = '';
+            groupMembers = [];
+            renderGroupMembers();
             renderGroupCategories(group);
             const channels = group.categories.flatMap(category => category.channels);
             const channel = channels.find(item => item.kind === 'text') || channels[0];
             if (channel) selectGroupChannel(channel);
             else {
                 activeGroupChannel = null;
+                groupSocketAttempt = null;
                 if (groupSocket) groupSocket.close();
                 groupSocket = null;
                 voiceSocketReady = false;
@@ -2547,6 +2918,49 @@
                 return true;
             }
             return false;
+        }
+
+        function renderGroupMembers() {
+            const onlineMembers = groupMembers.filter(member => member.online);
+            const offlineMembers = groupMembers.filter(member => !member.online);
+
+            function renderList(containerId, countId, members, emptyMessage) {
+                const container = document.getElementById(containerId);
+                const count = document.getElementById(countId);
+                if (!container || !count) return;
+                container.replaceChildren();
+                count.textContent = String(members.length);
+                if (members.length === 0) {
+                    const empty = document.createElement('div');
+                    empty.className = 'group-members-empty';
+                    empty.textContent = emptyMessage;
+                    container.appendChild(empty);
+                    return;
+                }
+                members.forEach(member => {
+                    const item = document.createElement('div');
+                    item.className = 'group-member-item';
+                    const avatar = document.createElement('div');
+                    avatar.className = 'group-member-avatar';
+                    applyAvatar(avatar, member.avatar_url || null, member.nick.charAt(0).toLocaleUpperCase('tr') || 'K');
+                    const copy = document.createElement('div');
+                    copy.className = 'group-member-copy';
+                    const name = document.createElement('strong');
+                    name.textContent = member.nick;
+                    const role = document.createElement('span');
+                    role.textContent = member.role || 'Üye';
+                    copy.append(name, role);
+                    item.append(avatar, copy);
+                    container.appendChild(item);
+                });
+            }
+
+            renderList('groupOnlineMembersList', 'groupOnlineCount', onlineMembers, 'Şu an çevrim içi üye yok.');
+            renderList('groupOfflineMembersList', 'groupOfflineCount', offlineMembers, 'Çevrim dışı üye yok.');
+        }
+
+        function toggleGroupMembers() {
+            document.getElementById('groupDetail').classList.toggle('show-group-members');
         }
 
         async function handleGroupSocketMessage(data, groupId, channelId) {
@@ -2602,6 +3016,13 @@
                     await peerState.connection.addIceCandidate(message.candidate);
                 } else {
                     peerState.pendingCandidates.push(message.candidate);
+                }
+                return;
+            }
+            if (message.type === 'group-presence') {
+                if (activeGroupId === groupId && activeGroupChannel?.id === channelId) {
+                    groupMembers = Array.isArray(message.members) ? message.members : [];
+                    renderGroupMembers();
                 }
                 return;
             }
@@ -2713,22 +3134,25 @@
 
         function updateVoiceControls() {
             document.getElementById('voiceJoinButton').disabled = voiceActive || voiceJoining || !voiceSocketReady;
-            document.getElementById('voiceJoinButton').textContent = voiceJoining ? '…' : '🎙';
+            document.getElementById('voiceJoinButton').textContent = voiceJoining ? 'Bağlanıyor…' : voiceActive ? 'Katıldın' : 'Katıl';
             document.getElementById('voiceJoinButton').title = voiceActive ? 'Mikrofona katıldın' : voiceJoining ? 'Mikrofon izni bekleniyor' : 'Ses kanalına katıl';
             document.getElementById('voiceJoinButton').setAttribute('aria-label', document.getElementById('voiceJoinButton').title);
             document.getElementById('microphoneButton').disabled = !voiceActive;
             document.getElementById('microphoneButton').textContent = microphoneMuted ? '🔇' : '🎙';
             document.getElementById('microphoneButton').title = microphoneMuted ? 'Mikrofonu aç' : 'Mikrofonu sustur';
             document.getElementById('microphoneButton').setAttribute('aria-label', document.getElementById('microphoneButton').title);
+            document.getElementById('microphoneButton').setAttribute('aria-pressed', String(microphoneMuted));
             document.getElementById('microphoneButton').classList.toggle('muted', microphoneMuted);
             document.getElementById('cameraButton').disabled = !voiceActive;
             document.getElementById('cameraButton').textContent = cameraTrack ? '▣' : '▧';
             document.getElementById('cameraButton').title = cameraTrack ? 'Kamerayı kapat' : 'Kamerayı aç';
             document.getElementById('cameraButton').setAttribute('aria-label', document.getElementById('cameraButton').title);
+            document.getElementById('cameraButton').setAttribute('aria-pressed', String(Boolean(cameraTrack)));
             document.getElementById('screenShareButton').disabled = !voiceActive;
             document.getElementById('screenShareButton').textContent = screenTrack ? '▣' : '▤';
             document.getElementById('screenShareButton').title = screenTrack ? 'Ekran paylaşımını durdur' : 'Ekranı paylaş';
             document.getElementById('screenShareButton').setAttribute('aria-label', document.getElementById('screenShareButton').title);
+            document.getElementById('screenShareButton').setAttribute('aria-pressed', String(Boolean(screenTrack)));
             document.getElementById('voiceLeaveButton').disabled = !voiceActive;
             document.getElementById('voiceStageStatus').textContent = voiceJoining
                 ? 'Mikrofon izni bekleniyor...'
@@ -2756,7 +3180,11 @@
                 localMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 voiceActive = true;
                 microphoneMuted = false;
-                sendGroupSignal({ type: 'voice-join', peerId: groupPeerId, nick: myNick || 'Kullanıcı' });
+                sendGroupSignal({
+                    type: 'voice-join',
+                    peerId: groupPeerId,
+                    nick: myNick || 'Kullanıcı'
+                });
                 updateVoiceControls();
                 document.getElementById('voice-chat-status').textContent = 'Ses kanalına katıldın.';
             } catch (error) {
@@ -2814,7 +3242,7 @@
                 video.playsInline = true;
                 const avatar = document.createElement('div');
                 avatar.className = 'voice-participant-avatar';
-                avatar.textContent = myNick.charAt(0).toLocaleUpperCase('tr') || 'S';
+                applyAvatar(avatar, profileAvatarUrl, myNick.charAt(0).toLocaleUpperCase('tr') || 'S');
                 const label = document.createElement('span');
                 label.textContent = `${myNick || 'Sen'} (sen)`;
                 tile.append(video, avatar, label);
@@ -2941,6 +3369,212 @@
                 await loadGroups();
             } catch (error) {
                 document.getElementById('groups-status').textContent = error.message;
+            }
+        }
+
+        const recommendationTopics = ['gaming', 'music', 'comedy', 'technology', 'sports', 'turkey'];
+
+        function toSavedVideo(video) {
+            return {
+                provider: video.provider || 'youtube',
+                id: video.id,
+                title: video.title || 'YouTube videosu',
+                channel_title: video.channel_title || video.channelTitle || '',
+                thumbnail_url: video.thumbnail_url || video.thumbnailUrl || ''
+            };
+        }
+
+        function isVideoInCollection(video, collectionName) {
+            const saved = toSavedVideo(video);
+            return videoCollections[collectionName].some(item =>
+                item.provider === saved.provider && item.id === saved.id
+            );
+        }
+
+        function renderVideoPersonalActions(video, container) {
+            const savedVideo = toSavedVideo(video);
+            const actions = document.createElement('div');
+            actions.className = 'video-personal-actions';
+            actions.dataset.provider = savedVideo.provider;
+            actions.dataset.videoId = savedVideo.id;
+            [
+                { collection: 'liked', label: 'Beğen', activeLabel: 'Beğenildi', icon: '♥' },
+                { collection: 'favorites', label: 'Favorilere ekle', activeLabel: 'Favorilerden çıkar', icon: '★' }
+            ].forEach(action => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'video-personal-action';
+                button.dataset.videoAction = action.collection;
+                const active = isVideoInCollection(savedVideo, action.collection);
+                button.setAttribute('aria-pressed', String(active));
+                button.textContent = `${action.icon} ${active ? action.activeLabel : action.label}`;
+                button.addEventListener('click', () => {
+                    void toggleVideoCollection(savedVideo, action.collection);
+                });
+                actions.appendChild(button);
+            });
+            container.appendChild(actions);
+        }
+
+        function updateVideoActionButtons(video) {
+            const savedVideo = toSavedVideo(video);
+            document.querySelectorAll('.video-personal-actions').forEach(actions => {
+                if (actions.dataset.provider !== savedVideo.provider || actions.dataset.videoId !== savedVideo.id) return;
+                actions.querySelectorAll('[data-video-action]').forEach(button => {
+                    const collection = button.dataset.videoAction;
+                    const active = isVideoInCollection(savedVideo, collection);
+                    button.setAttribute('aria-pressed', String(active));
+                    button.textContent = collection === 'liked'
+                        ? `${active ? '♥' : '♡'} ${active ? 'Beğenildi' : 'Beğen'}`
+                        : `${active ? '★' : '☆'} ${active ? 'Favorilerden çıkar' : 'Favorilere ekle'}`;
+                });
+            });
+        }
+
+        async function toggleVideoCollection(video, collectionName) {
+            const status = document.getElementById('videoCollectionsStatus');
+            const saved = !isVideoInCollection(video, collectionName);
+            try {
+                const result = await apiRequest(`/api/videos/collections/${collectionName}`, {
+                    method: 'POST',
+                    body: JSON.stringify({ video: toSavedVideo(video), saved })
+                });
+                videoCollections = result;
+                updateVideoActionButtons(video);
+                renderVideoCollection();
+                status.textContent = saved
+                    ? collectionName === 'liked' ? 'Video beğenilenlere eklendi.' : 'Video favorilere eklendi.'
+                    : collectionName === 'liked' ? 'Video beğenilenlerden kaldırıldı.' : 'Video favorilerden kaldırıldı.';
+            } catch (error) {
+                status.textContent = error.message;
+            }
+        }
+
+        async function loadVideoCollections() {
+            try {
+                videoCollections = await apiRequest('/api/videos/collections');
+                renderVideoCollection();
+                updateAllVideoActionButtons();
+            } catch (error) {
+                document.getElementById('videoCollectionsStatus').textContent = error.message;
+            }
+        }
+
+        function updateAllVideoActionButtons() {
+            document.querySelectorAll('.video-personal-actions').forEach(actions => {
+                const video = { provider: actions.dataset.provider, id: actions.dataset.videoId };
+                updateVideoActionButtons(video);
+            });
+        }
+
+        function selectVideoCollection(collectionName) {
+            activeVideoCollection = collectionName;
+            document.querySelectorAll('.video-collection-tab').forEach(button => {
+                const active = button.dataset.collection === collectionName;
+                button.classList.toggle('active', active);
+                button.setAttribute('aria-selected', String(active));
+            });
+            renderVideoCollection();
+        }
+
+        function renderVideoCollection() {
+            const grid = document.getElementById('videoCollectionGrid');
+            if (!grid) return;
+            grid.replaceChildren();
+            const videos = videoCollections[activeVideoCollection] || [];
+            if (!videos.length) {
+                const empty = document.createElement('div');
+                empty.className = 'search-history-empty';
+                empty.textContent = activeVideoCollection === 'favorites'
+                    ? 'Henüz favori videon yok. Videolardaki yıldız düğmesiyle favorilerine ekleyebilirsin.'
+                    : 'Henüz beğendiğin video yok.';
+                grid.appendChild(empty);
+                return;
+            }
+            videos.forEach(video => {
+                const card = document.createElement('article');
+                card.className = 'recommended-video-card';
+                const open = document.createElement('button');
+                open.type = 'button';
+                open.className = 'recommended-video-open';
+                const image = document.createElement('img');
+                image.src = video.thumbnail_url || '';
+                image.alt = '';
+                image.loading = 'lazy';
+                const copy = document.createElement('span');
+                copy.className = 'recommended-video-copy';
+                const title = document.createElement('strong');
+                title.textContent = video.title;
+                const channel = document.createElement('span');
+                channel.textContent = video.channel_title || (video.provider === 'instagram' ? 'Instagram Reels' : 'YouTube');
+                copy.append(title, channel);
+                open.append(image, copy);
+                open.addEventListener('click', () => {
+                    if (video.provider === 'youtube') playYouTubeVideo(video);
+                });
+                card.appendChild(open);
+                renderVideoPersonalActions(video, card);
+                grid.appendChild(card);
+            });
+        }
+
+        function renderRecommendedVideos() {
+            const grid = document.getElementById('recommendedVideoGrid');
+            if (!grid) return;
+            grid.replaceChildren();
+            recommendedVideos.forEach(video => {
+                const card = document.createElement('article');
+                card.className = 'recommended-video-card';
+                const open = document.createElement('button');
+                open.type = 'button';
+                open.className = 'recommended-video-open';
+                const image = document.createElement('img');
+                image.src = video.thumbnail_url;
+                image.alt = '';
+                image.loading = 'lazy';
+                const copy = document.createElement('span');
+                copy.className = 'recommended-video-copy';
+                const title = document.createElement('strong');
+                title.textContent = video.title;
+                const channel = document.createElement('span');
+                channel.textContent = video.channel_title;
+                copy.append(title, channel);
+                open.append(image, copy);
+                open.addEventListener('click', () => playYouTubeVideo(video));
+                card.appendChild(open);
+                renderVideoPersonalActions(video, card);
+                grid.appendChild(card);
+            });
+            if (!recommendedVideos.length) {
+                const empty = document.createElement('div');
+                empty.className = 'search-history-empty';
+                empty.textContent = 'Önerilen videoları yüklemek için yenile düğmesine bas.';
+                grid.appendChild(empty);
+            }
+        }
+
+        async function loadYouTubeRecommendations() {
+            const button = document.getElementById('refreshRecommendationsButton');
+            const status = document.getElementById('recommendationStatus');
+            if (!button || button.disabled) return;
+            const storedIndex = Number(localStorage.getItem('mortex_recommendation_topic_index') || -1);
+            const nextIndex = (Number.isFinite(storedIndex) ? storedIndex + 1 : 0) % recommendationTopics.length;
+            const topic = recommendationTopics[nextIndex];
+            localStorage.setItem('mortex_recommendation_topic_index', String(nextIndex));
+            button.disabled = true;
+            status.textContent = 'Yeni öneriler yükleniyor...';
+            try {
+                recommendedVideos = await apiRequest(`/api/youtube/recommendations?topic=${encodeURIComponent(topic)}`);
+                renderRecommendedVideos();
+                status.textContent = recommendedVideos.length
+                    ? `Gerçek YouTube videoları · ${topic === 'turkey' ? 'Türkiye' : topic} · Her yenilemede konu değişir.`
+                    : 'Bu kategoride öneri bulunamadı; yenilemeyi deneyebilirsin.';
+            } catch (error) {
+                status.textContent = error.message.includes('(404)')
+                    ? 'Öneri API’si çalışan sunucuda bulunamadı (404). Backend’i yeniden başlatıp sayfayı yenile.'
+                    : error.message;
+            } finally {
+                button.disabled = false;
             }
         }
 
@@ -3147,6 +3781,13 @@
                 channel.textContent = reel.channelTitle || 'Kaydırarak sonraki videoya geç';
                 caption.append(title, channel);
                 card.append(frame, caption);
+                renderVideoPersonalActions({
+                    provider: 'youtube',
+                    id: reel.id,
+                    title: reel.title,
+                    channel_title: reel.channelTitle,
+                    thumbnail_url: reel.thumbnailUrl || `https://i.ytimg.com/vi/${encodeURIComponent(reel.id)}/hqdefault.jpg`
+                }, card);
                 feed.appendChild(card);
             });
 

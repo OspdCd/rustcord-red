@@ -23,7 +23,7 @@ finally {
 $env:TURNSTILE_SITE_KEY = '0x4AAAAAAFfRY37-7PGoYfxH'
 $ownsYouTubeApiKey = $false
 if ([string]::IsNullOrWhiteSpace($env:YOUTUBE_API_KEY)) {
-    $secureYouTubeApiKey = Read-Host 'Enter YouTube Data API key for in-app search (optional; press Enter to skip)' -AsSecureString
+    $secureYouTubeApiKey = Read-Host 'YouTube Data API key (optional; press Enter to skip)' -AsSecureString
     if ($secureYouTubeApiKey.Length -gt 0) {
         $youtubeKeyPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureYouTubeApiKey)
         try {
