@@ -167,6 +167,11 @@ struct YouTubeThumbnail {
 }
 
 #[derive(Serialize)]
+struct GiphyConfig {
+    api_key: Option<String>,
+}
+
+#[derive(Serialize)]
 struct YouTubeVideo {
     id: String,
     title: String,
@@ -275,6 +280,12 @@ struct Friendship {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+struct Follow {
+    follower_email: String,
+    followed_email: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 struct StoryModel {
     id: String,
     author_email: String,
@@ -282,6 +293,8 @@ struct StoryModel {
     text: String,
     #[serde(default)]
     image: Option<String>,
+    #[serde(default)]
+    video: Option<String>,
     created_at: i64,
     expires_at: i64,
 }
@@ -294,6 +307,8 @@ struct Database {
     friend_requests: Vec<FriendRequest>,
     #[serde(default)]
     friendships: Vec<Friendship>,
+    #[serde(default)]
+    follows: Vec<Follow>,
     #[serde(default)]
     stories: Vec<StoryModel>,
     #[serde(default)]
@@ -344,7 +359,21 @@ struct NicknamePayload {
 struct FriendListResponse {
     friends: Vec<String>,
     friend_avatars: HashMap<String, String>,
+    friend_online: HashMap<String, bool>,
     requests: Vec<IncomingFriendRequest>,
+}
+
+#[derive(Serialize)]
+struct ProfileSocialResponse {
+    followers: Vec<String>,
+    following: Vec<String>,
+    is_following: bool,
+    posts: usize,
+}
+
+#[derive(Deserialize)]
+struct SetFollowPayload {
+    following: bool,
 }
 
 #[derive(Serialize)]
@@ -361,7 +390,10 @@ struct CreateFriendRequestPayload {
 #[derive(Serialize, Deserialize, Clone)]
 struct CreateStoryPayload {
     text: String,
+    #[serde(default)]
     image: Option<String>,
+    #[serde(default)]
+    video: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -390,6 +422,7 @@ struct AppState {
     group_channels: Mutex<HashMap<String, broadcast::Sender<String>>>,
     group_presence: Mutex<HashMap<u64, HashMap<String, LiveGroupMember>>>,
     group_ws_tickets: Mutex<HashMap<String, GroupWebSocketTicket>>,
+    user_presence: Mutex<HashMap<String, i64>>,
     tx: broadcast::Sender<String>,
 }
 
@@ -467,6 +500,7 @@ async fn main() {
         group_channels: Mutex::new(HashMap::new()),
         group_presence: Mutex::new(HashMap::new()),
         group_ws_tickets: Mutex::new(HashMap::new()),
+        user_presence: Mutex::new(HashMap::new()),
         tx,
     });
 
@@ -517,6 +551,7 @@ async fn main() {
         )
         .route("/api/auth/avatar", post(update_avatar))
         .route("/api/auth/logout", post(logout))
+        .route("/api/config/giphy", get(get_giphy_config))
         .route("/api/youtube/search", get(search_youtube_videos))
         .route(
             "/api/youtube/recommendations",
@@ -533,6 +568,9 @@ async fn main() {
         .route("/api/auth/account", delete(delete_account))
         .route("/api/friends", get(get_friends))
         .route("/api/friends/requests", post(create_friend_request))
+        .route("/api/presence", post(update_user_presence))
+        .route("/api/profiles/:nick", get(get_profile_social))
+        .route("/api/profiles/:nick/follow", post(set_profile_follow))
         .route(
             "/api/dm",
             get(get_direct_messages).post(send_direct_message),
@@ -595,6 +633,14 @@ async fn search_youtube_videos(
     Ok(Json(
         fetch_youtube_videos(search_term, "short", "relevance").await?,
     ))
+}
+
+async fn get_giphy_config() -> Json<GiphyConfig> {
+    Json(GiphyConfig {
+        api_key: env::var("GIPHY_API_KEY")
+            .ok()
+            .filter(|key| !key.trim().is_empty()),
+    })
 }
 
 async fn get_youtube_recommendations(
@@ -835,6 +881,10 @@ fn can_view_story(author_email: &str, viewer_email: &str, friends: &HashSet<Stri
     author_email == viewer_email || friends.contains(author_email)
 }
 
+fn is_user_online(last_seen: Option<&i64>, now: i64) -> bool {
+    last_seen.is_some_and(|last_seen| now >= *last_seen && now.saturating_sub(*last_seen) <= 90)
+}
+
 fn are_friends(database: &Database, first_email: &str, second_email: &str) -> bool {
     database.friendships.iter().any(|friendship| {
         (friendship.user_a == first_email && friendship.user_b == second_email)
@@ -843,10 +893,19 @@ fn are_friends(database: &Database, first_email: &str, second_email: &str) -> bo
 }
 
 async fn persist_database(database: &Database) -> Result<(), String> {
+    let path = database_path();
+    if let Some(parent_dir) = path.parent().filter(|dir| !dir.as_os_str().is_empty()) {
+        tokio::fs::create_dir_all(parent_dir)
+            .await
+            .map_err(|error| format!("Veri dizini oluşturulamadı: {error}"))?;
+    }
+
     let contents = serde_json::to_vec_pretty(database).map_err(|error| error.to_string())?;
-    tokio::fs::write(database_path(), contents)
+    tokio::fs::write(&path, contents)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(|error| format!("Veri dosyası yazılamadı ({path:?}): {error}"))?;
+
+    Ok(())
 }
 
 fn database_path() -> PathBuf {
@@ -1286,6 +1345,9 @@ async fn delete_account(
     database
         .friendships
         .retain(|friendship| friendship.user_a != email && friendship.user_b != email);
+    database
+        .follows
+        .retain(|follow| follow.follower_email != email && follow.followed_email != email);
     database.stories.retain(|story| story.author_email != email);
     database
         .direct_messages
@@ -1311,8 +1373,10 @@ async fn get_friends(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<FriendListResponse>, (StatusCode, String)> {
     let email = get_authenticated_email(&headers, &state).await?;
+    let now = now_unix();
+    let online_users = state.user_presence.lock().await;
     let database = state.database.lock().await;
-    let friend_profiles: Vec<(String, Option<String>)> = database
+    let friend_profiles: Vec<(String, Option<String>, bool)> = database
         .friendships
         .iter()
         .filter_map(|friendship| {
@@ -1327,16 +1391,30 @@ async fn get_friends(
                 .users
                 .iter()
                 .find(|user| user.email == *friend_email && !user.disabled)
-                .map(|user| (user.nick.clone(), user.avatar_url.clone()))
+                .map(|user| {
+                    (
+                        user.nick.clone(),
+                        user.avatar_url.clone(),
+                        is_user_online(online_users.get(&user.email), now),
+                    )
+                })
         })
         .collect();
     let friends = friend_profiles
         .iter()
-        .map(|(nick, _)| nick.clone())
+        .map(|(nick, _, _)| nick.clone())
         .collect();
     let friend_avatars = friend_profiles
+        .iter()
+        .filter_map(|(nick, avatar_url, _)| {
+            avatar_url
+                .clone()
+                .map(|avatar_url| (nick.clone(), avatar_url))
+        })
+        .collect();
+    let friend_online = friend_profiles
         .into_iter()
-        .filter_map(|(nick, avatar_url)| avatar_url.map(|avatar_url| (nick, avatar_url)))
+        .map(|(nick, _, online)| (nick, online))
         .collect();
     let requests = database
         .friend_requests
@@ -1356,8 +1434,141 @@ async fn get_friends(
     Ok(Json(FriendListResponse {
         friends,
         friend_avatars,
+        friend_online,
         requests,
     }))
+}
+
+async fn update_user_presence(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let now = now_unix();
+    let mut presence = state.user_presence.lock().await;
+    presence.retain(|_, last_seen| now.saturating_sub(*last_seen) <= 300);
+    presence.insert(email, now);
+    Ok(StatusCode::NO_CONTENT)
+}
+
+fn profile_social_response(
+    database: &Database,
+    viewer_email: &str,
+    profile_email: &str,
+    posts: usize,
+) -> ProfileSocialResponse {
+    let active_users: HashMap<_, _> = database
+        .users
+        .iter()
+        .filter(|user| !user.disabled)
+        .map(|user| (user.email.as_str(), user.nick.as_str()))
+        .collect();
+    let followers = database
+        .follows
+        .iter()
+        .filter(|follow| follow.followed_email == profile_email)
+        .filter_map(|follow| active_users.get(follow.follower_email.as_str()))
+        .map(|nick| (*nick).to_string())
+        .collect();
+    let following = database
+        .follows
+        .iter()
+        .filter(|follow| follow.follower_email == profile_email)
+        .filter_map(|follow| active_users.get(follow.followed_email.as_str()))
+        .map(|nick| (*nick).to_string())
+        .collect();
+    ProfileSocialResponse {
+        followers,
+        following,
+        is_following: database.follows.iter().any(|follow| {
+            follow.follower_email == viewer_email && follow.followed_email == profile_email
+        }),
+        posts,
+    }
+}
+
+async fn get_profile_social(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Path(nick): Path<String>,
+) -> Result<Json<ProfileSocialResponse>, (StatusCode, String)> {
+    let viewer_email = get_authenticated_email(&headers, &state).await?;
+    let database = state.database.lock().await;
+    let profile = database
+        .users
+        .iter()
+        .find(|user| user.nick.eq_ignore_ascii_case(&nick) && !user.disabled)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "Profil bulunamadı.".into()))?;
+    let posts = state
+        .posts
+        .lock()
+        .await
+        .iter()
+        .filter(|post| post.author.eq_ignore_ascii_case(&profile.nick))
+        .count();
+    Ok(Json(profile_social_response(
+        &database,
+        &viewer_email,
+        &profile.email,
+        posts,
+    )))
+}
+
+async fn set_profile_follow(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Path(nick): Path<String>,
+    Json(payload): Json<SetFollowPayload>,
+) -> Result<Json<ProfileSocialResponse>, (StatusCode, String)> {
+    let follower_email = get_authenticated_email(&headers, &state).await?;
+    let mut database = state.database.lock().await;
+    let followed_email = database
+        .users
+        .iter()
+        .find(|user| user.nick.eq_ignore_ascii_case(&nick) && !user.disabled)
+        .map(|user| user.email.clone())
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "Profil bulunamadı.".into()))?;
+    if follower_email == followed_email {
+        return Err((StatusCode::BAD_REQUEST, "Kendini takip edemezsin.".into()));
+    }
+    if payload.following {
+        if !database.follows.iter().any(|follow| {
+            follow.follower_email == follower_email && follow.followed_email == followed_email
+        }) {
+            database.follows.push(Follow {
+                follower_email: follower_email.clone(),
+                followed_email: followed_email.clone(),
+            });
+        }
+    } else {
+        database.follows.retain(|follow| {
+            follow.follower_email != follower_email || follow.followed_email != followed_email
+        });
+    }
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Takip değişikliği kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Takip değişikliği kaydedilemedi.".into(),
+        )
+    })?;
+    let posts = state
+        .posts
+        .lock()
+        .await
+        .iter()
+        .filter(|post| {
+            database.users.iter().any(|user| {
+                user.email == followed_email && post.author.eq_ignore_ascii_case(&user.nick)
+            })
+        })
+        .count();
+    Ok(Json(profile_social_response(
+        &database,
+        &follower_email,
+        &followed_email,
+        posts,
+    )))
 }
 
 async fn get_video_collections(
@@ -1693,12 +1904,13 @@ async fn create_story(
             "Hikaye metni en fazla 500 karakter olabilir.".into(),
         ));
     }
-    if text.is_empty() && payload.image.is_none() {
+    if text.is_empty() && payload.image.is_none() && payload.video.is_none() {
         return Err((
             StatusCode::BAD_REQUEST,
-            "Hikaye metni veya resmi gerekli.".into(),
+            "Hikaye metni veya medya gerekli.".into(),
         ));
     }
+
     if let Some(image) = &payload.image {
         let allowed_type = [
             "data:image/png;base64,",
@@ -1708,10 +1920,26 @@ async fn create_story(
         ]
         .iter()
         .any(|prefix| image.starts_with(prefix));
-        if !allowed_type || image.len() > 1_500_000 {
+        if !allowed_type {
             return Err((
-                StatusCode::PAYLOAD_TOO_LARGE,
-                "Resim türü desteklenmiyor veya dosya çok büyük.".into(),
+                StatusCode::BAD_REQUEST,
+                "Desteklenmeyen görsel türü.".into(),
+            ));
+        }
+    }
+
+    if let Some(video) = &payload.video {
+        let allowed_type = [
+            "data:video/mp4;base64,",
+            "data:video/webm;base64,",
+            "data:video/quicktime;base64,",
+        ]
+        .iter()
+        .any(|prefix| video.starts_with(prefix));
+        if !allowed_type {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Desteklenmeyen video türü.".into(),
             ));
         }
     }
@@ -1729,6 +1957,7 @@ async fn create_story(
         author,
         text: text.to_string(),
         image: payload.image,
+        video: payload.video,
         created_at: now,
         expires_at: now + 24 * 60 * 60,
     };
@@ -2531,6 +2760,7 @@ mod tests {
             author: "user".into(),
             text: "Hello".into(),
             image: None,
+            video: None,
             created_at: 10_000,
             expires_at: 10_000 + 24 * 60 * 60,
         };
@@ -2558,6 +2788,68 @@ mod tests {
             "viewer@example.com",
             &friends
         ));
+    }
+
+    #[test]
+    fn profile_followers_are_real_active_users_not_placeholder_counts() {
+        let database = Database {
+            users: vec![
+                User {
+                    email: "owner@example.com".into(),
+                    nick: "Owner".into(),
+                    password_hash: String::new(),
+                    disabled: false,
+                    avatar_url: None,
+                },
+                User {
+                    email: "follower@example.com".into(),
+                    nick: "Friend".into(),
+                    password_hash: String::new(),
+                    disabled: false,
+                    avatar_url: None,
+                },
+                User {
+                    email: "disabled@example.com".into(),
+                    nick: "Disabled".into(),
+                    password_hash: String::new(),
+                    disabled: true,
+                    avatar_url: None,
+                },
+            ],
+            follows: vec![
+                Follow {
+                    follower_email: "follower@example.com".into(),
+                    followed_email: "owner@example.com".into(),
+                },
+                Follow {
+                    follower_email: "disabled@example.com".into(),
+                    followed_email: "owner@example.com".into(),
+                },
+                Follow {
+                    follower_email: "owner@example.com".into(),
+                    followed_email: "follower@example.com".into(),
+                },
+            ],
+            ..Database::default()
+        };
+
+        let profile =
+            profile_social_response(&database, "follower@example.com", "owner@example.com", 3);
+        assert_eq!(profile.followers, vec!["Friend"]);
+        assert_eq!(profile.following, vec!["Friend"]);
+        assert!(profile.is_following);
+        assert_eq!(profile.posts, 3);
+        let json = serde_json::to_string(&profile).unwrap();
+        assert!(!json.contains("@example.com"));
+        assert!(!json.contains("12"));
+    }
+
+    #[test]
+    fn friend_presence_expires_after_ninety_seconds() {
+        assert!(is_user_online(Some(&1_000), 1_090));
+        assert!(!is_user_online(Some(&1_000), 1_091));
+        assert!(!is_user_online(None, 1_000));
+        assert!(!is_user_online(Some(&1_001), 1_000));
     }
 
     #[test]

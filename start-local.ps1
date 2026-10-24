@@ -40,6 +40,25 @@ if ([string]::IsNullOrWhiteSpace($env:YOUTUBE_API_KEY)) {
     }
 }
 
+$ownsGiphyApiKey = $false
+if ([string]::IsNullOrWhiteSpace($env:GIPHY_API_KEY)) {
+    $secureGiphyApiKey = Read-Host 'Giphy public API key (browser-visible; optional, press Enter to skip)' -AsSecureString
+    if ($secureGiphyApiKey.Length -gt 0) {
+        $giphyKeyPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureGiphyApiKey)
+        try {
+            $env:GIPHY_API_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($giphyKeyPointer)
+            $ownsGiphyApiKey = $true
+        }
+        finally {
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($giphyKeyPointer)
+            Remove-Variable secureGiphyApiKey
+        }
+    }
+    else {
+        Remove-Variable secureGiphyApiKey
+    }
+}
+
 Push-Location $PSScriptRoot
 try {
     cargo run
@@ -50,6 +69,9 @@ finally {
     Remove-Item Env:TURNSTILE_SITE_KEY -ErrorAction SilentlyContinue
     if ($ownsYouTubeApiKey) {
         Remove-Item Env:YOUTUBE_API_KEY -ErrorAction SilentlyContinue
+    }
+    if ($ownsGiphyApiKey) {
+        Remove-Item Env:GIPHY_API_KEY -ErrorAction SilentlyContinue
     }
     Pop-Location
 }
