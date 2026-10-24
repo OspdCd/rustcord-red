@@ -1,0 +1,4 @@
+filenames:
+  - /logs/host-nginx/rustcord_access.log
+labels:
+  type: nginx

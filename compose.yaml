@@ -1,0 +1,71 @@
+services:
+  app:
+    build:
+      context: .
+    restart: unless-stopped
+    init: true
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+    expose:
+      - "3000"
+    environment:
+      PORT: "3000"
+      APP_DATA_FILE: /data/app-data.json
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:?Set TURNSTILE_SITE_KEY in .env}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:?Set TURNSTILE_SECRET_KEY in .env}
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+      GIPHY_API_KEY: ${GIPHY_API_KEY:-}
+    volumes:
+      - app-data:/data
+    networks:
+      - rustcord
+
+  waf:
+    image: owasp/modsecurity-crs:4.25.2-nginx-202610180210-lts
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      SERVER_NAME: ${DOMAIN:?Set DOMAIN in .env}
+      BACKEND: http://app:3000
+      PORT: "8080"
+      NGINX_ALWAYS_TLS_REDIRECT: "off"
+      PROXY_TIMEOUT: 3600s
+      BLOCKING_PARANOIA: "1"
+      REPORTING_LEVEL: "2"
+    ports:
+      - "127.0.0.1:8081:8080"
+    volumes:
+      - waf-logs:/var/log/nginx
+    networks:
+      - rustcord
+
+  crowdsec:
+    image: crowdsecurity/crowdsec:v1.8.1
+    restart: unless-stopped
+    environment:
+      COLLECTIONS: crowdsecurity/nginx
+      BOUNCER_KEY_nginx: ${CROWDSEC_BOUNCER_KEY:?Set CROWDSEC_BOUNCER_KEY in .env}
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - crowdsec-config:/etc/crowdsec
+      - crowdsec-data:/var/lib/crowdsec/data
+      - ./deploy/crowdsec/acquis.d/rustcord.yaml:/etc/crowdsec/acquis.d/rustcord.yaml:ro
+      - /var/log/nginx:/logs/host-nginx:ro
+    networks:
+      - rustcord
+
+networks:
+  rustcord:
+
+volumes:
+  app-data:
+  waf-logs:
+  crowdsec-config:
+  crowdsec-data:

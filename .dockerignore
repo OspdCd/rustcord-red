@@ -1,0 +1,6 @@
+.git
+.env
+target
+tmp
+app-data.json
+data.json

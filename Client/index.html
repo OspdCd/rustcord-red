@@ -376,6 +376,7 @@
         .mobile-bottom-nav { display: none; }
         .mobile-friends { display: none; }
         .mobile-menu-overlay { display: none; }
+        .mobile-friend-requests-overlay { display: none; }
         .group-category { padding: 10px 12px; margin: 8px 0; border-radius: 10px; background: #101014; }
         .group-category-title { color: #a1a1aa; font-size: 11px; font-weight: 700; letter-spacing: .08em; }
         .group-channel { display: inline-flex; margin: 8px 8px 0 0; padding: 6px 9px; border-radius: 8px; background: #1a1a20; color: #e4e4e7; font-size: 12px; }
@@ -890,6 +891,10 @@
             .mobile-menu-item { display: flex; min-height: 44px; align-items: center; gap: 9px; padding: 8px 10px; border: 1px solid #272730; border-radius: 11px; background: #15151b; color: #d8d8e0; font-size: 11px; text-align: left; }
             .mobile-menu-item span:first-child { display: grid; width: 25px; height: 25px; flex: 0 0 25px; place-items: center; border-radius: 8px; background: #20181d; color: #ff9da4; }
             .mobile-menu-item.logout { border-color: rgba(239,68,68,.2); color: #ffb0b5; }
+            .mobile-friend-requests-overlay { position: fixed; z-index: 101; inset: 0 0 calc(68px + env(safe-area-inset-bottom)); display: none; align-items: flex-end; justify-content: center; padding: 12px; background: linear-gradient(180deg, transparent 15%, rgba(0,0,0,.72)); }
+            .mobile-friend-requests-overlay.open { display: flex; }
+            .mobile-friend-requests-sheet { width: min(100%, 440px); max-height: min(70vh, 560px); overflow-y: auto; padding: 14px; border: 1px solid #30303a; border-radius: 18px; background: #111115; box-shadow: 0 18px 55px rgba(0,0,0,.45); }
+            .mobile-friend-requests-sheet #friendRequestsContainer { gap: 7px !important; }
             #tab-Gruplar.group-open { padding: 0 !important; }
             .group-workspace { height: 100%; }
             .group-sidebar-close { display: none; }
@@ -910,17 +915,29 @@
         #app-screen { background: var(--ui-bg); }
         .far-left-bar { width: 80px; flex-basis: 80px; background: #0d0d13; border-color: var(--ui-border); }
         .left-sidebar { width: 255px; flex-basis: 255px; }
-        .right-menu-panel { position: relative; width: 256px; flex-basis: 256px; }
+        .right-menu-panel { position: relative; width: 282px; flex-basis: 282px; padding: 22px 18px; }
         .right-menu-panel::after {
             position: absolute; top: 18px; right: 20px; color: #71717f;
             content: "≡"; font-size: 15px; line-height: 1;
         }
-        .menu-btn { min-height: 38px; padding: 5px 9px; border-radius: 10px; font-size: 12px; }
+        .right-menu-panel::before { padding: 0 0 10px; border-bottom: 1px solid var(--ui-border); }
+        .menu-btn { min-height: 36px; padding: 4px 8px; border: 1px solid transparent; border-radius: 11px; font-size: 12px; }
         .menu-btn.active { position: relative; }
         .menu-btn.active::before {
-            position: absolute; top: 5px; bottom: 5px; left: -1px; width: 2px;
+            position: absolute; top: 4px; bottom: 4px; left: -1px; width: 2px;
             border-radius: 0 3px 3px 0; background: var(--ui-accent); content: "";
         }
+        .right-menu-panel .menu-btn-icon { width: 20px; height: 24px; flex-basis: 20px; border: 0; background: transparent; }
+        .menu-btn > span:last-child { font-size: 14px; }
+        .menu-btn.logout { min-height: 40px; margin-top: auto; border-color: transparent; background: #20202b; }
+        .right-menu-panel .menu-btn:not(.active):not(.logout) { border-color: transparent; background: transparent; }
+        .right-menu-panel .menu-btn:not(.active):not(.logout):hover { background: rgba(255,255,255,.035); }
+        .right-menu-panel .menu-btn.active {
+            border-color: transparent;
+            background: linear-gradient(100deg, rgba(255,45,104,.16), rgba(139,92,246,.1));
+            color: #fff;
+        }
+        .right-menu-panel .menu-btn.active .menu-btn-icon { border: 0; background: transparent; }
         .brand-logo {
             border: 1px solid rgba(255,255,255,.14);
             background: linear-gradient(145deg, var(--ui-accent), #d91d53);
@@ -935,6 +952,13 @@
             box-shadow: none;
         }
         .left-icon.active::before, .group-server-icon.active::before { background: linear-gradient(180deg, var(--ui-accent), var(--ui-purple)); }
+        .rail-settings { margin-top: auto; flex: 0 0 42px; }
+        .friends-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .friends-count-badge {
+            display: grid; min-width: 20px; height: 20px; place-items: center; padding: 0 6px;
+            border-radius: 999px; background: #242431; color: #d8d8e3; font-size: 10px;
+            font-weight: 700; letter-spacing: 0;
+        }
         .group-server-icon:hover, .group-server-icon.active {
             border-color: rgba(255,45,104,.35);
             background: linear-gradient(145deg, rgba(255,45,104,.18), rgba(139,92,246,.12));
@@ -958,6 +982,15 @@
         .profile-left .avatar-img { background: linear-gradient(145deg, var(--ui-accent), #a62bd4); }
         .user-item { border: 1px solid transparent; border-radius: 12px; }
         .user-item:hover { border-color: rgba(255,45,104,.12); background: rgba(255,45,104,.055); }
+        .friend-requests-empty {
+            display: grid; min-height: 96px; align-content: center; justify-items: center; gap: 8px;
+            border: 1px solid var(--ui-border); border-radius: 16px; background: #171720;
+            color: #9a9aaa; font-size: 11px; text-align: center;
+        }
+        .friend-requests-empty-icon {
+            display: grid; width: 40px; height: 40px; place-items: center;
+            border-radius: 50%; background: #252532; color: #a6a6b9; font-size: 19px;
+        }
         .user-profile-footer { border-color: var(--ui-border); background: #0e0e14; }
         .main-feed-area { background: transparent; }
         .story-bar { background: #09090d; border-color: var(--ui-border); }
@@ -1018,6 +1051,77 @@
             border-color: rgba(255,45,104,.42);
             background: rgba(255,45,104,.13);
             color: #ffb6ca;
+        }
+        .groups-create-panel { width: 100%; max-width: none; margin-bottom: 24px; padding: 11px; border-radius: 15px; }
+        .groups-create-panel .auth-input { background: #111117; }
+        .group-card { min-height: 74px; }
+        .group-card-mark { background: #8b32e5; color: #fff; }
+        .group-card:nth-child(2) .group-card-mark { background: #e91f4e; }
+        .group-card:nth-child(3) .group-card-mark { background: #079b76; }
+        .search-history-toolbar, .search-history-list { width: 100%; max-width: none; }
+        .search-history-toolbar { margin-bottom: 12px; }
+        .search-history-toolbar .auth-input { min-height: 42px; border-radius: 13px; background: #181821; }
+        .search-history-item { min-height: 43px; border-radius: 14px; background: #181821; }
+        .search-history-clear { border-color: var(--ui-border); border-radius: 12px; background: #181821; color: #c7c7d1; font-weight: 650; }
+        .video-collection-tabs { gap: 8px; margin: 10px 0 22px; }
+        .video-collection-tab { min-width: 90px; padding: 9px 14px; border-color: transparent; border-radius: 11px; background: #181821; font-size: 11px; font-weight: 700; }
+        .video-collection-tab.active { border-color: transparent; background: var(--ui-accent); color: white; box-shadow: 0 6px 18px rgba(255,45,104,.2); }
+        #videoCollectionGrid .search-history-empty {
+            display: grid; min-height: 132px; width: 100%; place-items: center;
+            padding: 20px; border-color: #23232d; border-radius: 16px; background: #0e0e14;
+            font-size: 12px; line-height: 1.5;
+        }
+        .news-page-title { margin: 6px 0 24px; font-size: 24px; }
+        .announcement-card { min-height: 164px; border: 1px solid var(--ui-border); border-radius: 16px; background: #181821; }
+        .announcement-card h3 { font-size: 14px; }
+        .announcement-card p { max-width: 520px; font-size: 12px; }
+        #tab-Mesaj { padding: 32px 38px 24px !important; }
+        #tab-Mesaj > h3 { margin-bottom: 16px; font-size: 18px; }
+        .dm-workspace { height: min(504px, calc(100% - 70px)); flex: 0 1 504px; gap: 16px; margin-top: 0; }
+        .dm-friends-panel { width: 32%; min-width: 250px; flex-basis: 32%; border-radius: 16px; background: #181821; }
+        .dm-friends-heading { padding: 12px 20px; font-size: 10px; }
+        .dm-friends-list { padding: 8px 12px; }
+        .dm-friend-item { min-height: 54px; gap: 12px; padding: 8px 10px; border-radius: 14px; }
+        .dm-friend-item.active { border-color: rgba(255,45,104,.28); background: rgba(255,45,104,.12); }
+        .dm-friend-avatar { width: 34px; height: 34px; flex-basis: 34px; border-radius: 10px; background: #9630e8; }
+        .dm-friend-avatar::after { display: none; }
+        .dm-friend-copy { gap: 3px; }
+        .dm-friend-name { font-size: 12px; font-weight: 700; }
+        .dm-friend-status { font-size: 10px; }
+        .dm-conversation { padding: 14px 16px 15px; border: 1px solid var(--ui-border); border-radius: 16px; background: #181821; }
+        .dm-chat-title { min-height: 30px; padding-bottom: 10px; border-bottom: 1px solid var(--ui-border); color: #f0eff4; font-size: 12px; }
+        .dm-conversation .messages-list { margin: 0; padding: 10px 0; border: 0; background: transparent; }
+        .direct-message-empty {
+            width: min(100%, 454px); min-height: 127px; flex: 0 0 auto; gap: 10px;
+            border: 1px solid var(--ui-border); border-radius: 18px; background: #20202b;
+        }
+        .dm-empty-icon {
+            display: grid; width: 48px; height: 48px; place-items: center;
+            border-radius: 15px; background: rgba(255,45,104,.1); color: var(--ui-accent); font-size: 22px;
+        }
+        .direct-message-empty strong { font-size: 12px; text-transform: uppercase; }
+        .direct-message-empty > span:last-child { display: none; }
+        #tab-Mesaj .message-composer { min-height: 48px; padding-top: 0; border-top: 0; }
+        #tab-Mesaj .message-composer .composer-shell { border-radius: 13px; background: #111117; }
+        #tab-Mesaj .message-composer > .auth-btn { min-width: 86px; min-height: 40px; border-radius: 12px; }
+        #tab-Mesaj #direct-message-status { padding: 0; }
+        #tab-Reels { min-height: 0; }
+        .reels-container { gap: 14px; padding: 30px 22px 24px; }
+        .reels-page-heading { margin-bottom: 0; }
+        .reels-page-heading h2 { font-size: 25px; }
+        .reels-page-heading p { font-size: 12px; }
+        .reels-trend-row { margin-top: 8px; margin-bottom: 8px; }
+        .recommended-video-grid { gap: 18px; }
+        .recommended-video-card { border-radius: 16px; background: #181821; }
+        .recommended-video-open img { aspect-ratio: 16 / 9; }
+        .recommended-video-copy { gap: 7px; padding: 12px 14px 7px; }
+        .recommended-video-copy strong { font-size: 12px; }
+        .recommended-video-copy span { font-size: 10px; }
+        .video-personal-actions { padding: 7px 12px 12px; border-top: 1px solid var(--ui-border); }
+        .video-personal-action { min-height: 29px; flex: 1; border-radius: 10px; font-size: 10px; font-weight: 650; }
+        .recommended-video-grid .search-history-empty {
+            display: grid; min-height: 120px; grid-column: 1 / -1; place-items: center;
+            border-color: #24242e; background: #0e0e14;
         }
         .group-workspace-header, .group-members-panel { border-color: var(--ui-border); background: #12121a; }
         .group-channel.active, .group-category, .group-voice-view, .voice-stage { border-color: var(--ui-border); background-color: rgba(255,255,255,.035); }
@@ -1095,16 +1199,20 @@
     <div id="auth-screen">
         <div class="auth-card">
             <section class="auth-showcase" aria-label="RustCord tanıtımı">
-                <div class="auth-brand"><span class="auth-brand-mark" aria-hidden="true"><svg class="site-logo-bolt" viewBox="0 0 20 28"><path d="M11.4 0 2 15.1h6.3L7.1 28 18 10.5h-6.5L14 0z"></path></svg></span><span>RUSTCORD RED</span></div>
+                <div class="auth-brand">
+                    <div class="auth-brand-mark">
+                        <svg class="site-logo-bolt" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    </div>
+                    RUSTCORD
+                </div>
                 <div class="auth-showcase-copy">
-                    <div class="auth-eyebrow">Birlikte daha yakın</div>
-                    <h1>Topluluğun burada başlıyor.</h1>
-                    <p>Arkadaşlarınla konuş, topluluklara katıl ve anlarını paylaş. Hepsi tek bir yerde.</p>
+                    <div class="auth-eyebrow">Premium Topluluk Deneyimi</div>
+                    <h1>Arkadaşlarınla ve Topluluklarla Canlı Bağlantı Kur</h1>
+                    <p>Yüksek performanslı akışlar, özel kanallar, sesli odalar ve video keşif araçları tek bir çatı altında.</p>
                 </div>
                 <div class="auth-feature-list">
-                    <div class="auth-feature"><span class="auth-feature-icon">✦</span><span>Arkadaşlarınla özel mesajlaş</span></div>
-                    <div class="auth-feature"><span class="auth-feature-icon">◉</span><span>Topluluklarda birlikte buluş</span></div>
-                    <div class="auth-feature"><span class="auth-feature-icon">↗</span><span>Hikâyelerini güvenle paylaş</span></div>
+                    <div class="auth-feature"><div class="auth-feature-icon">✓</div> Gerçek zamanlı mesajlaşma ve medya paylaşımı</div>
+                    <div class="auth-feature"><div class="auth-feature-icon">✓</div> Özelleştirilebilir grup sunucuları</div>
                 </div>
             </section>
             <section class="auth-form-panel">
@@ -1307,6 +1415,9 @@
             <div class="group-server-divider" aria-hidden="true"></div>
             <div id="groupServerRail" class="group-server-rail" aria-label="Grupların"></div>
             <button class="group-server-icon add" type="button" title="Grup oluştur" aria-label="Grup oluştur" onclick="switchTab('Gruplar');document.getElementById('newGroupName').focus()">＋</button>
+            <button class="left-icon rail-settings" type="button" aria-label="Ayarlar" title="Ayarlar" onclick="openSettings()">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"></path><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V2a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"></path></svg>
+            </button>
         </div>
 
         <div class="left-sidebar">
@@ -1317,10 +1428,14 @@
                     <button class="add-friend-btn-small" type="button" onclick="openModal('friend-modal')" title="Arkadaş Ekle" aria-label="Arkadaş ekle">+</button>
                 </div>
                 <div class="user-section">
-                    <div class="section-header">Arkadaşlarım</div>
+                    <div class="section-header friends-section-heading">
+                        <span>Arkadaşların</span><span id="friendsCountBadge" class="friends-count-badge">0</span>
+                    </div>
                     <div id="friendsListContainer" style="display: flex; flex-direction: column; gap: 4px;"></div>
-                    <div class="section-header" style="margin-top:8px;">Arkadaşlık İstekleri</div>
-                    <div id="friendRequestsContainer" style="display: flex; flex-direction: column; gap: 4px;"></div>
+                    <div id="friendRequestsHome">
+                        <div class="section-header" style="margin-top:8px;">Arkadaşlık İstekleri</div>
+                        <div id="friendRequestsContainer" style="display: flex; flex-direction: column; gap: 4px;"></div>
+                    </div>
                 </div>
             </div>
             <div id="groupChannelsSidebar" class="group-channels-sidebar">
@@ -1434,7 +1549,11 @@
                     <section class="dm-conversation" aria-label="Özel sohbet">
                         <h4 id="chatTitle" class="dm-chat-title">Bir sohbet seç</h4>
                         <div id="messagesBox" class="messages-list">
-                            <div class="direct-message-empty"><strong>Özel sohbetini seç</strong><span>Sohbet etmek istediğin arkadaşını soldaki listeden seç.</span></div>
+                            <div class="direct-message-empty">
+                                <span class="dm-empty-icon" aria-hidden="true">▧</span>
+                                <strong>Özel sohbetini seç</strong>
+                                <span>Sohbet etmek istediğin arkadaşını soldaki listeden seç.</span>
+                            </div>
                         </div>
                         <form class="message-composer" onsubmit="sendDirectMessage(event)">
                             <div class="composer-shell">
@@ -1649,8 +1768,8 @@
                     <span class="announcement-icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24"><path d="M3 10v4h4l10 5V5L7 10H3Z"></path><path d="m7 14 1.5 5h4L11 16M20 9l2-1m-2 7 2 1"></path></svg>
                     </span>
-                    <h3>RustCord arayüzü yenilendi</h3>
-                    <p>Mesajlaşma, topluluklar ve video keşfi için yeni görünüm artık kullanıma hazır.</p>
+                    <h3>Sistem Güncellemesi v2.4 Yayında!</h3>
+                    <p>Tüm platform ve video deneyimi yeniden tasarlandı. Premium UI temaları ve daha hızlı arama performansının tadını çıkarın.</p>
                 </article>
             </div>
         </div>
@@ -1711,11 +1830,22 @@
                     <button class="mobile-menu-item" type="button" onclick="switchTab('Arama')"><span>🕒</span>Arama geçmişi</button>
                     <button class="mobile-menu-item" type="button" onclick="switchTab('Favoriler')"><span>♥</span>Beğenilenler / Favoriler</button>
                     <button class="mobile-menu-item" type="button" onclick="switchTab('Bildirim')"><span>🔔</span>Haberler</button>
+                    <button class="mobile-menu-item" type="button" onclick="openMobileFriendRequests()"><span>♙</span>Arkadaşlık istekleri</button>
                     <button class="mobile-menu-item" type="button" onclick="closeMobileMenu();openModal('friend-modal')"><span>＋</span>Arkadaş ekle</button>
                     <button class="mobile-menu-item" type="button" onclick="closeMobileMenu();openSettings()"><span>👤</span>Profil ve ayarlar</button>
+                    <button class="mobile-menu-item" type="button" onclick="window.location.replace('about:blank')"><span>⚡</span>Boş ekrana geç</button>
                     <button class="mobile-menu-item logout" type="button" onclick="closeMobileMenu();handleLogout()"><span>↪</span>Çıkış yap</button>
                 </div>
             </nav>
+        </div>
+        <div id="mobileFriendRequestsOverlay" class="mobile-friend-requests-overlay" onclick="if(event.target === this) closeMobileFriendRequests()">
+            <section class="mobile-friend-requests-sheet" role="dialog" aria-modal="true" aria-labelledby="mobileFriendRequestsTitle">
+                <div class="mobile-menu-heading">
+                    <h2 id="mobileFriendRequestsTitle">Arkadaşlık istekleri</h2>
+                    <button type="button" aria-label="İstekleri kapat" onclick="closeMobileFriendRequests()">×</button>
+                </div>
+                <div id="mobileFriendRequestsContent"></div>
+            </section>
         </div>
 
     </div>
@@ -2806,6 +2936,25 @@
             button.classList.remove('active');
         }
 
+        function openMobileFriendRequests() {
+            closeMobileMenu();
+            document.getElementById('mobileFriendRequestsContent').appendChild(
+                document.getElementById('friendRequestsContainer')
+            );
+            document.getElementById('mobileFriendRequestsOverlay').classList.add('open');
+        }
+
+        function closeMobileFriendRequests() {
+            document.getElementById('friendRequestsHome').appendChild(
+                document.getElementById('friendRequestsContainer')
+            );
+            document.getElementById('mobileFriendRequestsOverlay').classList.remove('open');
+        }
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 720) closeMobileFriendRequests();
+        });
+
         function switchSettingsSection(section) {
             document.querySelectorAll('.settings-nav-item').forEach(item => item.classList.remove('active'));
             document.querySelectorAll('.settings-panel').forEach(panel => panel.classList.remove('active'));
@@ -2851,6 +3000,7 @@
         function renderFriends() {
             const container = document.getElementById('friendsListContainer');
             const requestContainer = document.getElementById('friendRequestsContainer');
+            document.getElementById('friendsCountBadge').textContent = String(friends.length);
             container.replaceChildren();
             if (!friends.length) {
                 const empty = document.createElement('div');
@@ -2892,8 +3042,14 @@
             requestContainer.replaceChildren();
             if (!friendRequests.length) {
                 const empty = document.createElement('div');
-                empty.className = 'user-status';
-                empty.textContent = 'Bekleyen istek yok.';
+                empty.className = 'friend-requests-empty';
+                const icon = document.createElement('span');
+                icon.className = 'friend-requests-empty-icon';
+                icon.setAttribute('aria-hidden', 'true');
+                icon.textContent = '♙';
+                const text = document.createElement('span');
+                text.textContent = 'Bekleyen istek yok.';
+                empty.append(icon, text);
                 requestContainer.appendChild(empty);
             }
             friendRequests.forEach(request => {
@@ -3340,11 +3496,15 @@
                 if (!messages.length) {
                     const empty = document.createElement('div');
                     empty.className = 'direct-message-empty';
+                    const icon = document.createElement('span');
+                    icon.className = 'dm-empty-icon';
+                    icon.setAttribute('aria-hidden', 'true');
+                    icon.textContent = '▧';
                     const title = document.createElement('strong');
                     title.textContent = 'Sohbet başladı';
                     const description = document.createElement('span');
                     description.textContent = `${nick} ile ilk mesajınızı gönderin.`;
-                    empty.append(title, description);
+                    empty.append(icon, title, description);
                     box.appendChild(empty);
                 }
                 box.scrollTop = box.scrollHeight;

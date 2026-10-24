@@ -23,7 +23,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use tokio::sync::{Mutex, broadcast};
-use tower_http::{cors::CorsLayer, services::ServeDir};
+use tower_http::services::ServeDir;
 use uuid::Uuid;
 
 // --- VERİ YAPILARI (DATA STRUCTURES) ---
@@ -588,7 +588,6 @@ async fn main() {
             get(group_channel_websocket_handler),
         )
         .fallback_service(ServeDir::new("Client").append_index_html_on_directories(true))
-        .layer(CorsLayer::permissive())
         .with_state(state);
 
     let port = env::var("PORT")
