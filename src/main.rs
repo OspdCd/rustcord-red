@@ -12,7 +12,14 @@ use axum::{
     routing::{delete, get, post},
 };
 use futures_util::{SinkExt, StreamExt};
+use lettre::{
+    AsyncSmtpTransport, AsyncTransport, Tokio1Executor,
+    message::{Mailbox, Message as MailMessage},
+    transport::smtp::authentication::Credentials,
+};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{
     collections::{HashMap, HashSet},
     env, fs,
@@ -35,6 +42,39 @@ struct PostModel {
     content: String,
     likes: u32,
     created_at: String,
+    #[serde(default)]
+    liked_by: Vec<String>,
+    #[serde(default)]
+    image: Option<String>,
+    #[serde(default)]
+    comments: Vec<PostComment>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct PostComment {
+    id: String,
+    author: String,
+    content: String,
+    created_at: String,
+}
+
+#[derive(Serialize)]
+struct PostResponse {
+    id: u64,
+    author: String,
+    content: String,
+    likes: u32,
+    created_at: String,
+    image: Option<String>,
+    comments: Vec<PostComment>,
+    is_liked: bool,
+    is_saved: bool,
+}
+
+#[derive(Deserialize)]
+struct PostsQuery {
+    scope: Option<String>,
+    author: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -42,6 +82,8 @@ struct GroupModel {
     id: u64,
     name: String,
     members_count: u32,
+    #[serde(default)]
+    is_private: bool,
     #[serde(default)]
     owner_email: Option<String>,
     #[serde(default)]
@@ -71,6 +113,7 @@ struct GroupView {
     id: u64,
     name: String,
     members_count: u32,
+    is_private: bool,
     owner: String,
     role: String,
     categories: Vec<ChannelCategory>,
@@ -102,8 +145,25 @@ struct NotificationModel {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct CreatePostPayload {
-    author: String,
     content: String,
+    #[serde(default)]
+    image: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct CreatePostCommentPayload {
+    content: String,
+}
+
+#[derive(Deserialize)]
+struct SetPostSavedPayload {
+    saved: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct SavedPost {
+    email: String,
+    post_id: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -126,6 +186,7 @@ struct AssignGroupModeratorPayload {
 #[derive(Deserialize)]
 struct YouTubeSearchQuery {
     q: String,
+    order: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -213,6 +274,7 @@ struct UpdateVideoCollectionPayload {
 #[derive(Deserialize)]
 struct YouTubeRecommendationQuery {
     topic: String,
+    interest: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -321,14 +383,58 @@ struct Database {
     sessions: HashMap<String, Session>,
     #[serde(default)]
     video_collections: Vec<UserVideoCollections>,
+    #[serde(default)]
+    posts: Vec<PostModel>,
+    #[serde(default)]
+    saved_posts: Vec<SavedPost>,
+    #[serde(default)]
+    email_verification_migrated: bool,
 }
 
 #[derive(Deserialize)]
-struct AuthPayload {
+struct AuthChallengePayload {
+    #[serde(default)]
     nick: String,
     email: String,
     password: String,
+    mode: String,
     turnstile_token: String,
+}
+
+#[derive(Deserialize)]
+struct VerifyAuthChallengePayload {
+    challenge_id: String,
+    code: String,
+}
+
+#[derive(Deserialize)]
+struct PasswordResetRequestPayload {
+    email: String,
+    turnstile_token: String,
+}
+
+#[derive(Deserialize)]
+struct PasswordResetCompletePayload {
+    challenge_id: String,
+    code: String,
+    new_password: String,
+}
+
+#[derive(Serialize)]
+struct AuthChallengeResponse {
+    challenge_id: String,
+    message: &'static str,
+}
+
+struct EmailCodeChallenge {
+    email: String,
+    nick: String,
+    password_hash: String,
+    purpose: String,
+    code_hash: String,
+    expires_at: i64,
+    attempts_remaining: u8,
+    account_exists: bool,
 }
 
 #[derive(Serialize)]
@@ -356,11 +462,11 @@ struct NicknamePayload {
 }
 
 #[derive(Serialize)]
-struct FriendListResponse {
-    friends: Vec<String>,
-    friend_avatars: HashMap<String, String>,
-    friend_online: HashMap<String, bool>,
-    requests: Vec<IncomingFriendRequest>,
+struct FollowingListResponse {
+    following: Vec<String>,
+    avatars: HashMap<String, String>,
+    online: HashMap<String, bool>,
+    can_dm: HashMap<String, bool>,
 }
 
 #[derive(Serialize)]
@@ -368,23 +474,27 @@ struct ProfileSocialResponse {
     followers: Vec<String>,
     following: Vec<String>,
     is_following: bool,
+    follows_viewer: bool,
     posts: usize,
+}
+
+#[derive(Deserialize)]
+struct ProfileSearchQuery {
+    query: Option<String>,
+}
+
+#[derive(Serialize)]
+struct DiscoverProfile {
+    nick: String,
+    avatar_url: Option<String>,
+    followers: usize,
+    is_following: bool,
+    follows_viewer: bool,
 }
 
 #[derive(Deserialize)]
 struct SetFollowPayload {
     following: bool,
-}
-
-#[derive(Serialize)]
-struct IncomingFriendRequest {
-    id: String,
-    nick: String,
-}
-
-#[derive(Deserialize)]
-struct CreateFriendRequestPayload {
-    nick: String,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -416,13 +526,14 @@ struct TurnstileVerification {
 // --- SUNUCU DURUMU (APP STATE) ---
 
 struct AppState {
-    posts: Mutex<Vec<PostModel>>,
     notifications: Mutex<Vec<NotificationModel>>,
     database: Mutex<Database>,
     group_channels: Mutex<HashMap<String, broadcast::Sender<String>>>,
     group_presence: Mutex<HashMap<u64, HashMap<String, LiveGroupMember>>>,
     group_ws_tickets: Mutex<HashMap<String, GroupWebSocketTicket>>,
     user_presence: Mutex<HashMap<String, i64>>,
+    email_code_challenges: Mutex<HashMap<String, EmailCodeChallenge>>,
+    email_code_cooldowns: Mutex<HashMap<(String, String), i64>>,
     tx: broadcast::Sender<String>,
 }
 
@@ -435,6 +546,8 @@ async fn main() {
         Err(error) if error.kind() == ErrorKind::NotFound => Database::default(),
         Err(error) => panic!("data.json okunamadı: {error}"),
     };
+    let social_graph_migrated = migrate_friendships_to_follows(&mut database);
+    let email_verification_migrated = migrate_email_verification(&mut database);
     let user_emails: HashSet<String> = database
         .users
         .iter()
@@ -444,63 +557,38 @@ async fn main() {
     database
         .sessions
         .retain(|_, session| user_emails.contains(&session.email));
-    let mut groups_migrated = false;
-    if database.groups.is_empty() {
-        database.groups = default_groups();
-        groups_migrated = true;
-    } else {
-        for group in &mut database.groups {
-            if group.categories.is_empty() {
-                group.categories = default_groups()[0].categories.clone();
-                groups_migrated = true;
-            }
+    let mut groups_migrated = migrate_default_groups(&mut database);
+    for group in &mut database.groups {
+        if group.categories.is_empty() {
+            group.categories = default_group_categories();
+            groups_migrated = true;
         }
     }
-    if groups_migrated {
+    if let Some(owner_email) = database
+        .users
+        .iter()
+        .find(|user| user.nick.eq_ignore_ascii_case("Reyzz") && !user.disabled)
+        .map(|user| user.email.clone())
+    {
+        groups_migrated |= ensure_private_test_server(&mut database, &owner_email);
+    } else {
+        eprintln!("Gizli test sunucusu oluşturulamadı: etkin Reyzz hesabı bulunamadı.");
+    }
+    if groups_migrated || social_graph_migrated || email_verification_migrated {
         persist_database(&database)
             .await
-            .expect("Topluluklar kalıcı veriye yazılamadı");
+            .expect("Başlangıç verisi kalıcı dosyaya yazılamadı");
     }
 
-    // Başlangıç Örnek Verileri (Görseldekine Uygun)
-    let initial_posts = vec![
-        PostModel {
-            id: 1,
-            author: "Skylex".into(),
-            content: "Gecenin sessizliği... 🌃👑".into(),
-            likes: 124,
-            created_at: "2 saat önce".into(),
-        },
-        PostModel {
-            id: 2,
-            author: "Zeynep".into(),
-            content: "Yeni bir başlangıç... 🚀".into(),
-            likes: 42,
-            created_at: "4 saat önce".into(),
-        },
-    ];
-
-    let initial_notifications = vec![
-        NotificationModel {
-            id: 1,
-            title: "Yeni İstek".into(),
-            content: "Ali Yılmaz sana arkadaşlık isteği gönderdi.".into(),
-        },
-        NotificationModel {
-            id: 2,
-            title: "Sistem".into(),
-            content: "RustCord Red sürümüne hoş geldin!".into(),
-        },
-    ];
-
     let state = Arc::new(AppState {
-        posts: Mutex::new(initial_posts),
-        notifications: Mutex::new(initial_notifications),
+        notifications: Mutex::new(Vec::new()),
         database: Mutex::new(database),
         group_channels: Mutex::new(HashMap::new()),
         group_presence: Mutex::new(HashMap::new()),
         group_ws_tickets: Mutex::new(HashMap::new()),
         user_presence: Mutex::new(HashMap::new()),
+        email_code_challenges: Mutex::new(HashMap::new()),
+        email_code_cooldowns: Mutex::new(HashMap::new()),
         tx,
     });
 
@@ -527,6 +615,8 @@ async fn main() {
         // 🏠 EV / AKIŞ ROUTELERİ
         .route("/api/posts", get(get_posts).post(create_post))
         .route("/api/posts/:id/like", post(like_post))
+        .route("/api/posts/:id/comments", post(add_post_comment))
+        .route("/api/posts/:id/save", post(set_post_saved))
         // 👥 GRUPLAR ROUTELERİ
         .route("/api/groups", get(get_groups).post(create_group))
         .route("/api/groups/:group_id", delete(delete_group))
@@ -543,7 +633,16 @@ async fn main() {
         .route("/api/notifications", get(get_notifications))
         .route("/api/config/turnstile", get(get_turnstile_config))
         .route("/api/turnstile/verify", post(verify_turnstile))
-        .route("/api/auth", post(authenticate))
+        .route("/api/auth/challenge", post(start_auth_challenge))
+        .route("/api/auth/verify", post(verify_auth_challenge))
+        .route(
+            "/api/auth/password/reset/request",
+            post(request_password_reset),
+        )
+        .route(
+            "/api/auth/password/reset/complete",
+            post(complete_password_reset),
+        )
         .route("/api/auth/me", get(get_session_user))
         .route(
             "/api/auth/websocket-ticket",
@@ -566,18 +665,14 @@ async fn main() {
         .route("/api/auth/nickname", post(change_nickname))
         .route("/api/auth/deactivate", post(deactivate_account))
         .route("/api/auth/account", delete(delete_account))
-        .route("/api/friends", get(get_friends))
-        .route("/api/friends/requests", post(create_friend_request))
+        .route("/api/following", get(get_following))
         .route("/api/presence", post(update_user_presence))
+        .route("/api/profiles", get(search_profiles))
         .route("/api/profiles/:nick", get(get_profile_social))
         .route("/api/profiles/:nick/follow", post(set_profile_follow))
         .route(
             "/api/dm",
             get(get_direct_messages).post(send_direct_message),
-        )
-        .route(
-            "/api/friends/requests/:request_id/accept",
-            post(accept_friend_request),
         )
         .route("/api/stories", get(get_stories).post(create_story))
         // 💬 WEBSOCKET (ANLIK CHAT & MESAJLAR)
@@ -629,8 +724,15 @@ async fn search_youtube_videos(
             "Arama sözü 1-120 karakter olmalı.".into(),
         ));
     }
+    let order = query.order.as_deref().unwrap_or("relevance");
+    if !matches!(order, "relevance" | "date") {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Geçersiz YouTube arama sıralaması.".into(),
+        ));
+    }
     Ok(Json(
-        fetch_youtube_videos(search_term, "short", "relevance").await?,
+        fetch_youtube_videos(search_term, "short", order).await?,
     ))
 }
 
@@ -648,7 +750,7 @@ async fn get_youtube_recommendations(
     Query(query): Query<YouTubeRecommendationQuery>,
 ) -> Result<Json<Vec<YouTubeVideo>>, (StatusCode, String)> {
     get_authenticated_email(&headers, &state).await?;
-    let search_term = match query.topic.as_str() {
+    let default_search_term = match query.topic.as_str() {
         "gaming" => "trending gaming videos",
         "music" => "trending music videos",
         "comedy" => "popular comedy videos",
@@ -659,9 +761,29 @@ async fn get_youtube_recommendations(
             return Err((StatusCode::BAD_REQUEST, "Geçersiz öneri kategorisi.".into()));
         }
     };
-    Ok(Json(
-        fetch_youtube_videos(search_term, "any", "date").await?,
-    ))
+    let interest: String = query
+        .interest
+        .unwrap_or_default()
+        .chars()
+        .filter(|character| character.is_alphanumeric() || character.is_whitespace())
+        .take(80)
+        .collect();
+    let interest = interest.trim();
+    let search_term = if interest.chars().count() >= 3 {
+        format!("{interest} videos")
+    } else {
+        default_search_term.to_string()
+    };
+    let order = if interest.chars().count() >= 3 {
+        "relevance"
+    } else {
+        "date"
+    };
+    let mut videos = fetch_youtube_videos(&search_term, "any", order).await?;
+    if videos.is_empty() && search_term != default_search_term {
+        videos = fetch_youtube_videos(default_search_term, "any", "date").await?;
+    }
+    Ok(Json(videos))
 }
 
 async fn fetch_youtube_videos(
@@ -884,11 +1006,75 @@ fn is_user_online(last_seen: Option<&i64>, now: i64) -> bool {
     last_seen.is_some_and(|last_seen| now >= *last_seen && now.saturating_sub(*last_seen) <= 90)
 }
 
-fn are_friends(database: &Database, first_email: &str, second_email: &str) -> bool {
-    database.friendships.iter().any(|friendship| {
-        (friendship.user_a == first_email && friendship.user_b == second_email)
-            || (friendship.user_b == first_email && friendship.user_a == second_email)
+fn follows(database: &Database, follower_email: &str, followed_email: &str) -> bool {
+    database.follows.iter().any(|follow| {
+        follow.follower_email == follower_email && follow.followed_email == followed_email
     })
+}
+
+fn can_exchange_direct_messages(
+    database: &Database,
+    first_email: &str,
+    second_email: &str,
+) -> bool {
+    follows(database, first_email, second_email) && follows(database, second_email, first_email)
+}
+
+fn migrate_friendships_to_follows(database: &mut Database) -> bool {
+    let had_legacy_relationships =
+        !database.friendships.is_empty() || !database.friend_requests.is_empty();
+    let active_emails: HashSet<_> = database
+        .users
+        .iter()
+        .filter(|user| !user.disabled)
+        .map(|user| user.email.as_str())
+        .collect();
+    let friendships = std::mem::take(&mut database.friendships);
+    for friendship in friendships {
+        if !active_emails.contains(friendship.user_a.as_str())
+            || !active_emails.contains(friendship.user_b.as_str())
+        {
+            continue;
+        }
+        for (follower_email, followed_email) in [
+            (&friendship.user_a, &friendship.user_b),
+            (&friendship.user_b, &friendship.user_a),
+        ] {
+            if !follows(database, follower_email, followed_email) {
+                database.follows.push(Follow {
+                    follower_email: follower_email.clone(),
+                    followed_email: followed_email.clone(),
+                });
+            }
+        }
+    }
+    database.friend_requests.clear();
+    had_legacy_relationships
+}
+
+fn migrate_email_verification(database: &mut Database) -> bool {
+    if database.email_verification_migrated {
+        return false;
+    }
+    database.sessions.clear();
+    database.email_verification_migrated = true;
+    true
+}
+
+fn post_response(post: &PostModel, viewer_email: &str, saved_posts: &[SavedPost]) -> PostResponse {
+    PostResponse {
+        id: post.id,
+        author: post.author.clone(),
+        content: post.content.clone(),
+        likes: post.likes,
+        created_at: post.created_at.clone(),
+        image: post.image.clone(),
+        comments: post.comments.clone(),
+        is_liked: post.liked_by.iter().any(|email| email == viewer_email),
+        is_saved: saved_posts
+            .iter()
+            .any(|saved| saved.email == viewer_email && saved.post_id == post.id),
+    }
 }
 
 async fn persist_database(database: &Database) -> Result<(), String> {
@@ -940,19 +1126,15 @@ fn verify_password(password: &str, password_hash: &str) -> bool {
         .is_ok()
 }
 
-async fn authenticate(
-    headers: HeaderMap,
+async fn start_auth_challenge(
     State(state): State<Arc<AppState>>,
-    Json(payload): Json<AuthPayload>,
-) -> Result<(HeaderMap, Json<AuthResponse>), (StatusCode, String)> {
-    let nick = payload.nick.trim();
-    let email = payload.email.trim().to_lowercase();
-    if nick.is_empty() || nick.chars().count() > 32 {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "Kullanıcı adı 1-32 karakter olmalı.".into(),
-        ));
+    Json(payload): Json<AuthChallengePayload>,
+) -> Result<Json<AuthChallengeResponse>, (StatusCode, String)> {
+    if !matches!(payload.mode.as_str(), "login" | "register") {
+        return Err((StatusCode::BAD_REQUEST, "Geçersiz hesap işlemi.".into()));
     }
+    verify_turnstile_token(&payload.turnstile_token).await?;
+    let email = payload.email.trim().to_lowercase();
     if !validate_email(&email) {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -965,46 +1147,268 @@ async fn authenticate(
             "Şifre 8-128 karakter olmalı.".into(),
         ));
     }
-    verify_turnstile_token(&payload.turnstile_token).await?;
 
-    let mut database = state.database.lock().await;
-    let user = if let Some(user) = database.users.iter().find(|user| user.email == email) {
-        if user.disabled || !verify_password(&payload.password, &user.password_hash) {
+    let (nick, password_hash) = if payload.mode == "register" {
+        let nick = payload.nick.trim();
+        if nick.is_empty() || nick.chars().count() > 32 {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Kullanıcı adı 1-32 karakter olmalı.".into(),
+            ));
+        }
+        {
+            let database = state.database.lock().await;
+            if database.users.iter().any(|user| user.email == email) {
+                return Err((
+                    StatusCode::CONFLICT,
+                    "Bu e-posta adresi zaten kayıtlı.".into(),
+                ));
+            }
+            if database
+                .users
+                .iter()
+                .any(|user| user.nick.eq_ignore_ascii_case(nick))
+            {
+                return Err((
+                    StatusCode::CONFLICT,
+                    "Bu kullanıcı adı zaten kullanılıyor.".into(),
+                ));
+            }
+        }
+        (nick.to_string(), hash_password(&payload.password)?)
+    } else {
+        let database = state.database.lock().await;
+        let user = database.users.iter().find(|user| user.email == email);
+        let Some(user) = user.filter(|user| {
+            !user.disabled && verify_password(&payload.password, &user.password_hash)
+        }) else {
             return Err((
                 StatusCode::UNAUTHORIZED,
                 "E-posta veya şifre hatalı.".into(),
             ));
-        }
-        user.clone()
-    } else {
+        };
+        (user.nick.clone(), user.password_hash.clone())
+    };
+
+    let purpose = payload.mode;
+    reserve_email_code_slot(&state, &email, &purpose).await?;
+    let challenge_id = Uuid::new_v4().to_string();
+    let code = generate_email_code();
+    if let Err(error) = send_email_code(&email, &code, &purpose).await {
+        release_email_code_slot(&state, &email, &purpose).await;
+        return Err(error);
+    }
+    store_email_code_challenge(
+        &state,
+        challenge_id.clone(),
+        EmailCodeChallenge {
+            email,
+            nick,
+            password_hash,
+            purpose: purpose.clone(),
+            code_hash: email_code_digest(&challenge_id, &code),
+            expires_at: now_unix() + 10 * 60,
+            attempts_remaining: 5,
+            account_exists: true,
+        },
+    )
+    .await;
+    Ok(Json(AuthChallengeResponse {
+        challenge_id,
+        message: if purpose == "register" {
+            "E-posta adresine doğrulama kodu gönderildi."
+        } else {
+            "Girişini tamamlamak için e-posta adresine doğrulama kodu gönderildi."
+        },
+    }))
+}
+
+async fn verify_auth_challenge(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<VerifyAuthChallengePayload>,
+) -> Result<(HeaderMap, Json<AuthResponse>), (StatusCode, String)> {
+    let challenge = take_verified_email_code(
+        &state,
+        &payload.challenge_id,
+        &payload.code,
+        "login",
+        "register",
+    )
+    .await?;
+    let user = if challenge.purpose == "register" {
+        let mut database = state.database.lock().await;
         if database
             .users
             .iter()
-            .any(|user| user.nick.eq_ignore_ascii_case(nick))
+            .any(|user| user.email == challenge.email)
         {
             return Err((
                 StatusCode::CONFLICT,
-                "Bu kullanıcı adı zaten kullanılıyor.".into(),
+                "Bu e-posta adresi zaten kayıtlı.".into(),
             ));
         }
-        let new_user = User {
-            email: email.clone(),
-            nick: nick.to_string(),
-            password_hash: hash_password(&payload.password)?,
+        if database
+            .users
+            .iter()
+            .any(|user| user.nick.eq_ignore_ascii_case(&challenge.nick))
+        {
+            return Err((
+                StatusCode::CONFLICT,
+                "Bu kullanıcı adı artık kullanılamıyor.".into(),
+            ));
+        }
+        let user = User {
+            email: challenge.email,
+            nick: challenge.nick,
+            password_hash: challenge.password_hash,
             disabled: false,
             avatar_url: None,
         };
-        database.users.push(new_user.clone());
+        database.users.push(user.clone());
         persist_database(&database).await.map_err(|error| {
-            eprintln!("Yeni kullanıcı kaydedilemedi: {error}");
+            eprintln!("Doğrulanmış hesap kaydedilemedi: {error}");
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Hesap kaydedilemedi.".into(),
             )
         })?;
-        new_user
+        user
+    } else {
+        let database = state.database.lock().await;
+        database
+            .users
+            .iter()
+            .find(|user| {
+                user.email == challenge.email
+                    && !user.disabled
+                    && user.password_hash == challenge.password_hash
+            })
+            .cloned()
+            .ok_or_else(|| {
+                (
+                    StatusCode::UNAUTHORIZED,
+                    "E-posta veya şifre hatalı. Lütfen yeniden giriş yapın.".into(),
+                )
+            })?
     };
+    create_authenticated_session(headers, &state, user).await
+}
+
+async fn request_password_reset(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<PasswordResetRequestPayload>,
+) -> Result<Json<AuthChallengeResponse>, (StatusCode, String)> {
+    verify_turnstile_token(&payload.turnstile_token).await?;
+    let email = payload.email.trim().to_lowercase();
+    if !validate_email(&email) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Geçerli biçimde bir e-posta adresi girin.".into(),
+        ));
+    }
+    let user = {
+        let database = state.database.lock().await;
+        database
+            .users
+            .iter()
+            .find(|user| user.email == email && !user.disabled)
+            .cloned()
+    };
+    reserve_email_code_slot(&state, &email, "reset").await?;
+    let challenge_id = Uuid::new_v4().to_string();
+    let code = generate_email_code();
+    if user.is_some()
+        && let Err(error) = send_email_code(&email, &code, "reset").await
+    {
+        release_email_code_slot(&state, &email, "reset").await;
+        return Err(error);
+    }
+    let user = user.unwrap_or(User {
+        email: email.clone(),
+        nick: String::new(),
+        password_hash: String::new(),
+        disabled: true,
+        avatar_url: None,
+    });
+    store_email_code_challenge(
+        &state,
+        challenge_id.clone(),
+        EmailCodeChallenge {
+            email,
+            nick: user.nick,
+            password_hash: user.password_hash,
+            purpose: "reset".into(),
+            code_hash: email_code_digest(&challenge_id, &code),
+            expires_at: now_unix() + 10 * 60,
+            attempts_remaining: 5,
+            account_exists: !user.disabled,
+        },
+    )
+    .await;
+    Ok(Json(AuthChallengeResponse {
+        challenge_id,
+        message: "Bu adres kayıtlıysa şifre sıfırlama kodu gönderildi.",
+    }))
+}
+
+async fn complete_password_reset(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<PasswordResetCompletePayload>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    if !(8..=128).contains(&payload.new_password.chars().count()) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Yeni şifre 8-128 karakter olmalı.".into(),
+        ));
+    }
+    let challenge = take_verified_email_code(
+        &state,
+        &payload.challenge_id,
+        &payload.code,
+        "reset",
+        "reset",
+    )
+    .await?;
+    if !challenge.account_exists {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "Kod geçersiz veya süresi dolmuş.".into(),
+        ));
+    }
+    let new_password_hash = hash_password(&payload.new_password)?;
+    let mut database = state.database.lock().await;
+    let user = database
+        .users
+        .iter_mut()
+        .find(|user| user.email == challenge.email && !user.disabled)
+        .ok_or_else(|| {
+            (
+                StatusCode::UNAUTHORIZED,
+                "Kod geçersiz veya süresi dolmuş.".into(),
+            )
+        })?;
+    user.password_hash = new_password_hash;
+    database
+        .sessions
+        .retain(|_, session| session.email != challenge.email);
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Şifre sıfırlama kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Yeni şifre kaydedilemedi.".into(),
+        )
+    })?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn create_authenticated_session(
+    headers: HeaderMap,
+    state: &AppState,
+    user: User,
+) -> Result<(HeaderMap, Json<AuthResponse>), (StatusCode, String)> {
     let session = Uuid::new_v4().to_string();
+    let mut database = state.database.lock().await;
     database.sessions.insert(
         session.clone(),
         Session {
@@ -1050,6 +1454,177 @@ async fn authenticate(
             avatar_url: user.avatar_url,
         }),
     ))
+}
+
+async fn reserve_email_code_slot(
+    state: &AppState,
+    email: &str,
+    purpose: &str,
+) -> Result<(), (StatusCode, String)> {
+    let now = now_unix();
+    let mut cooldowns = state.email_code_cooldowns.lock().await;
+    cooldowns.retain(|_, expires_at| *expires_at > now);
+    let key = (email.to_string(), purpose.to_string());
+    if cooldowns.contains_key(&key) {
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "Yeni kod istemeden önce bir dakika bekleyin.".into(),
+        ));
+    }
+    if cooldowns.len() >= 30 {
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            "E-posta kodu gönderim sınırına ulaşıldı. Bir dakika sonra tekrar deneyin.".into(),
+        ));
+    }
+    cooldowns.insert(key, now + 60);
+    Ok(())
+}
+
+async fn release_email_code_slot(state: &AppState, email: &str, purpose: &str) {
+    state
+        .email_code_cooldowns
+        .lock()
+        .await
+        .remove(&(email.to_string(), purpose.to_string()));
+}
+
+async fn store_email_code_challenge(
+    state: &AppState,
+    challenge_id: String,
+    challenge: EmailCodeChallenge,
+) {
+    let now = now_unix();
+    let mut challenges = state.email_code_challenges.lock().await;
+    challenges.retain(|_, challenge| challenge.expires_at > now);
+    challenges.retain(|_, existing| {
+        existing.email != challenge.email || existing.purpose != challenge.purpose
+    });
+    challenges.insert(challenge_id, challenge);
+}
+
+async fn take_verified_email_code(
+    state: &AppState,
+    challenge_id: &str,
+    code: &str,
+    purpose: &str,
+    alternative_purpose: &str,
+) -> Result<EmailCodeChallenge, (StatusCode, String)> {
+    let now = now_unix();
+    let mut challenges = state.email_code_challenges.lock().await;
+    let Some(challenge) = challenges.get_mut(challenge_id) else {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "Kod geçersiz veya süresi dolmuş.".into(),
+        ));
+    };
+    if challenge.expires_at <= now
+        || !matches!(
+            challenge.purpose.as_str(),
+            value if value == purpose || value == alternative_purpose
+        )
+    {
+        challenges.remove(challenge_id);
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "Kod geçersiz veya süresi dolmuş.".into(),
+        ));
+    }
+    if challenge.code_hash != email_code_digest(challenge_id, code.trim()) {
+        challenge.attempts_remaining = challenge.attempts_remaining.saturating_sub(1);
+        if challenge.attempts_remaining == 0 {
+            challenges.remove(challenge_id);
+        }
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "Kod geçersiz veya süresi dolmuş.".into(),
+        ));
+    }
+    challenges.remove(challenge_id).ok_or_else(|| {
+        (
+            StatusCode::UNAUTHORIZED,
+            "Kod geçersiz veya süresi dolmuş.".into(),
+        )
+    })
+}
+
+fn generate_email_code() -> String {
+    format!("{:06}", rand::thread_rng().gen_range(0..1_000_000))
+}
+
+fn email_code_digest(challenge_id: &str, code: &str) -> String {
+    let digest = Sha256::digest(format!("{challenge_id}:{code}").as_bytes());
+    digest.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+async fn send_email_code(
+    recipient: &str,
+    code: &str,
+    purpose: &str,
+) -> Result<(), (StatusCode, String)> {
+    let username = env::var("SMTP_USERNAME")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(email_sender_not_configured)?;
+    let app_password = env::var("SMTP_APP_PASSWORD")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(email_sender_not_configured)?;
+    let from: Mailbox = username.parse().map_err(|_| {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "SMTP_USERNAME geçerli bir Gmail adresi olmalı.".into(),
+        )
+    })?;
+    let to: Mailbox = recipient.parse().map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            "Geçerli biçimde bir e-posta adresi girin.".into(),
+        )
+    })?;
+    let subject = match purpose {
+        "register" => "RustCord e-posta doğrulama kodu",
+        "login" => "RustCord giriş doğrulama kodu",
+        _ => "RustCord şifre sıfırlama kodu",
+    };
+    let message = MailMessage::builder()
+        .from(from)
+        .to(to)
+        .subject(subject)
+        .body(format!(
+            "RustCord doğrulama kodunuz: {code}\n\nBu kod 10 dakika içinde sona erer. Bu isteği siz yapmadıysanız bu e-postayı yok sayabilirsiniz."
+        ))
+        .map_err(|error| {
+            eprintln!("Doğrulama e-postası hazırlanamadı: {error}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Doğrulama e-postası hazırlanamadı.".into(),
+            )
+        })?;
+    let transport = AsyncSmtpTransport::<Tokio1Executor>::starttls_relay("smtp.gmail.com")
+        .map_err(|error| {
+            eprintln!("Gmail SMTP bağlantısı hazırlanamadı: {error}");
+            email_sender_not_configured()
+        })?
+        .port(587)
+        .credentials(Credentials::new(username, app_password.replace(' ', "")))
+        .build();
+    transport.send(message).await.map_err(|error| {
+        eprintln!("Gmail doğrulama e-postası gönderilemedi: {error}");
+        (
+            StatusCode::BAD_GATEWAY,
+            "Gmail'e doğrulama e-postası gönderilemedi. Sunucu SMTP ayarlarını kontrol edin."
+                .into(),
+        )
+    })?;
+    Ok(())
+}
+
+fn email_sender_not_configured() -> (StatusCode, String) {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        "E-posta doğrulama servisi yapılandırılmamış. Sunucu yöneticisi Gmail SMTP ayarlarını eklemeli.".into(),
+    )
 }
 
 fn session_token_from_headers(headers: &HeaderMap) -> Option<String> {
@@ -1337,6 +1912,12 @@ async fn delete_account(
 ) -> Result<StatusCode, (StatusCode, String)> {
     let email = get_authenticated_email(&headers, &state).await?;
     let mut database = state.database.lock().await;
+    let nick = database
+        .users
+        .iter()
+        .find(|user| user.email == email)
+        .map(|user| user.nick.clone())
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "Hesap bulunamadı.".into()))?;
     database.users.retain(|user| user.email != email);
     database
         .friend_requests
@@ -1355,6 +1936,18 @@ async fn delete_account(
         .video_collections
         .retain(|collection| collection.email != email);
     database
+        .posts
+        .retain(|post| !post.author.eq_ignore_ascii_case(&nick));
+    for post in &mut database.posts {
+        post.liked_by.retain(|liked_email| liked_email != &email);
+        post.likes = post.liked_by.len() as u32;
+    }
+    database.saved_posts.retain(|saved| saved.email != email);
+    let remaining_post_ids: HashSet<_> = database.posts.iter().map(|post| post.id).collect();
+    database
+        .saved_posts
+        .retain(|saved| remaining_post_ids.contains(&saved.post_id));
+    database
         .sessions
         .retain(|_, session| session.email != email);
     persist_database(&database).await.map_err(|error| {
@@ -1367,74 +1960,59 @@ async fn delete_account(
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn get_friends(
+async fn get_following(
     headers: HeaderMap,
     State(state): State<Arc<AppState>>,
-) -> Result<Json<FriendListResponse>, (StatusCode, String)> {
+) -> Result<Json<FollowingListResponse>, (StatusCode, String)> {
     let email = get_authenticated_email(&headers, &state).await?;
     let now = now_unix();
     let online_users = state.user_presence.lock().await;
     let database = state.database.lock().await;
-    let friend_profiles: Vec<(String, Option<String>, bool)> = database
-        .friendships
+    let friend_profiles: Vec<(String, String, Option<String>, bool, bool)> = database
+        .follows
         .iter()
-        .filter_map(|friendship| {
-            let friend_email = if friendship.user_a == email {
-                &friendship.user_b
-            } else if friendship.user_b == email {
-                &friendship.user_a
-            } else {
-                return None;
-            };
+        .filter(|follow| follow.follower_email == email)
+        .filter_map(|follow| {
             database
                 .users
                 .iter()
-                .find(|user| user.email == *friend_email && !user.disabled)
+                .find(|user| user.email == follow.followed_email && !user.disabled)
                 .map(|user| {
                     (
                         user.nick.clone(),
+                        user.email.clone(),
                         user.avatar_url.clone(),
                         is_user_online(online_users.get(&user.email), now),
+                        can_exchange_direct_messages(&database, &email, &user.email),
                     )
                 })
         })
         .collect();
-    let friends = friend_profiles
+    let following = friend_profiles
         .iter()
-        .map(|(nick, _, _)| nick.clone())
+        .map(|(nick, _, _, _, _)| nick.clone())
         .collect();
-    let friend_avatars = friend_profiles
+    let avatars = friend_profiles
         .iter()
-        .filter_map(|(nick, avatar_url, _)| {
+        .filter_map(|(nick, _, avatar_url, _, _)| {
             avatar_url
                 .clone()
                 .map(|avatar_url| (nick.clone(), avatar_url))
         })
         .collect();
-    let friend_online = friend_profiles
-        .into_iter()
-        .map(|(nick, _, online)| (nick, online))
-        .collect();
-    let requests = database
-        .friend_requests
+    let online = friend_profiles
         .iter()
-        .filter(|request| request.to_email == email)
-        .filter_map(|request| {
-            database
-                .users
-                .iter()
-                .find(|user| user.email == request.from_email && !user.disabled)
-                .map(|user| IncomingFriendRequest {
-                    id: request.id.clone(),
-                    nick: user.nick.clone(),
-                })
-        })
+        .map(|(nick, _, _, online, _)| (nick.clone(), *online))
         .collect();
-    Ok(Json(FriendListResponse {
-        friends,
-        friend_avatars,
-        friend_online,
-        requests,
+    let can_dm = friend_profiles
+        .into_iter()
+        .map(|(nick, _, _, _, can_dm)| (nick, can_dm))
+        .collect();
+    Ok(Json(FollowingListResponse {
+        following,
+        avatars,
+        online,
+        can_dm,
     }))
 }
 
@@ -1482,8 +2060,66 @@ fn profile_social_response(
         is_following: database.follows.iter().any(|follow| {
             follow.follower_email == viewer_email && follow.followed_email == profile_email
         }),
+        follows_viewer: database.follows.iter().any(|follow| {
+            follow.follower_email == profile_email && follow.followed_email == viewer_email
+        }),
         posts,
     }
+}
+
+fn search_profile_directory(
+    database: &Database,
+    viewer_email: &str,
+    query: Option<&str>,
+) -> Vec<DiscoverProfile> {
+    let query = query.unwrap_or_default().trim().to_lowercase();
+    let active_emails: HashSet<_> = database
+        .users
+        .iter()
+        .filter(|user| !user.disabled)
+        .map(|user| user.email.as_str())
+        .collect();
+    let mut profiles: Vec<_> = database
+        .users
+        .iter()
+        .filter(|user| !user.disabled && user.email != viewer_email)
+        .filter(|user| query.is_empty() || user.nick.to_lowercase().contains(&query))
+        .map(|user| DiscoverProfile {
+            nick: user.nick.clone(),
+            avatar_url: user.avatar_url.clone(),
+            followers: database
+                .follows
+                .iter()
+                .filter(|follow| {
+                    follow.followed_email == user.email
+                        && active_emails.contains(follow.follower_email.as_str())
+                })
+                .count(),
+            is_following: database.follows.iter().any(|follow| {
+                follow.follower_email == viewer_email && follow.followed_email == user.email
+            }),
+            follows_viewer: database.follows.iter().any(|follow| {
+                follow.follower_email == user.email && follow.followed_email == viewer_email
+            }),
+        })
+        .collect();
+    profiles.sort_by_key(|profile| profile.nick.to_lowercase());
+    profiles.truncate(24);
+    profiles
+}
+
+async fn search_profiles(
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<ProfileSearchQuery>,
+) -> Result<Json<Vec<DiscoverProfile>>, (StatusCode, String)> {
+    let viewer_email = get_authenticated_email(&headers, &state).await?;
+    let database = state.database.lock().await;
+    Ok(Json(search_profile_directory(
+        &database,
+        &viewer_email,
+        query.query.as_deref(),
+    )))
 }
 
 async fn get_profile_social(
@@ -1498,10 +2134,8 @@ async fn get_profile_social(
         .iter()
         .find(|user| user.nick.eq_ignore_ascii_case(&nick) && !user.disabled)
         .ok_or_else(|| (StatusCode::NOT_FOUND, "Profil bulunamadı.".into()))?;
-    let posts = state
+    let posts = database
         .posts
-        .lock()
-        .await
         .iter()
         .filter(|post| post.author.eq_ignore_ascii_case(&profile.nick))
         .count();
@@ -1551,10 +2185,8 @@ async fn set_profile_follow(
             "Takip değişikliği kaydedilemedi.".into(),
         )
     })?;
-    let posts = state
+    let posts = database
         .posts
-        .lock()
-        .await
         .iter()
         .filter(|post| {
             database.users.iter().any(|user| {
@@ -1671,88 +2303,6 @@ async fn update_video_collection(
     }))
 }
 
-async fn create_friend_request(
-    headers: HeaderMap,
-    State(state): State<Arc<AppState>>,
-    Json(payload): Json<CreateFriendRequestPayload>,
-) -> Result<StatusCode, (StatusCode, String)> {
-    let email = get_authenticated_email(&headers, &state).await?;
-    let target_nick = payload.nick.trim();
-    let mut database = state.database.lock().await;
-    let target_email = database
-        .users
-        .iter()
-        .find(|user| user.nick.eq_ignore_ascii_case(target_nick) && !user.disabled)
-        .map(|user| user.email.clone())
-        .ok_or_else(|| (StatusCode::NOT_FOUND, "Bu kullanıcı bulunamadı.".into()))?;
-    if target_email == email {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "Kendine arkadaşlık isteği gönderemezsin.".into(),
-        ));
-    }
-    if database.friendships.iter().any(|friendship| {
-        (friendship.user_a == email && friendship.user_b == target_email)
-            || (friendship.user_b == email && friendship.user_a == target_email)
-    }) {
-        return Err((StatusCode::CONFLICT, "Bu kullanıcı zaten arkadaşın.".into()));
-    }
-    if database.friend_requests.iter().any(|request| {
-        (request.from_email == email && request.to_email == target_email)
-            || (request.from_email == target_email && request.to_email == email)
-    }) {
-        return Err((
-            StatusCode::CONFLICT,
-            "Bu kullanıcıyla bekleyen bir arkadaşlık isteği var.".into(),
-        ));
-    }
-    database.friend_requests.push(FriendRequest {
-        id: Uuid::new_v4().to_string(),
-        from_email: email,
-        to_email: target_email,
-    });
-    persist_database(&database).await.map_err(|error| {
-        eprintln!("Arkadaşlık isteği kaydedilemedi: {error}");
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Arkadaşlık isteği gönderilemedi.".into(),
-        )
-    })?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
-async fn accept_friend_request(
-    Path(request_id): Path<String>,
-    headers: HeaderMap,
-    State(state): State<Arc<AppState>>,
-) -> Result<StatusCode, (StatusCode, String)> {
-    let email = get_authenticated_email(&headers, &state).await?;
-    let mut database = state.database.lock().await;
-    let index = database
-        .friend_requests
-        .iter()
-        .position(|request| request.id == request_id && request.to_email == email)
-        .ok_or_else(|| {
-            (
-                StatusCode::NOT_FOUND,
-                "Arkadaşlık isteği bulunamadı.".into(),
-            )
-        })?;
-    let request = database.friend_requests.remove(index);
-    database.friendships.push(Friendship {
-        user_a: email,
-        user_b: request.from_email,
-    });
-    persist_database(&database).await.map_err(|error| {
-        eprintln!("Arkadaşlık kaydedilemedi: {error}");
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "Arkadaşlık onaylanamadı.".into(),
-        )
-    })?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
 async fn get_direct_messages(
     Query(query): Query<DirectMessageQuery>,
     headers: HeaderMap,
@@ -1772,10 +2322,10 @@ async fn get_direct_messages(
             "Kendinle özel mesajlaşma başlatamazsın.".into(),
         ));
     }
-    if !are_friends(&database, &email, &recipient_email) {
+    if !can_exchange_direct_messages(&database, &email, &recipient_email) {
         return Err((
             StatusCode::FORBIDDEN,
-            "Özel mesajlar yalnızca arkadaşlar arasında gönderilebilir.".into(),
+            "Özel mesajlar için iki hesabın da birbirini takip etmesi gerekir.".into(),
         ));
     }
 
@@ -1829,10 +2379,10 @@ async fn send_direct_message(
             "Kendine özel mesaj gönderemezsin.".into(),
         ));
     }
-    if !are_friends(&database, &email, &recipient_email) {
+    if !can_exchange_direct_messages(&database, &email, &recipient_email) {
         return Err((
             StatusCode::FORBIDDEN,
-            "Özel mesajlar yalnızca arkadaşlar arasında gönderilebilir.".into(),
+            "Özel mesajlar için iki hesabın da birbirini takip etmesi gerekir.".into(),
         ));
     }
 
@@ -1868,23 +2418,16 @@ async fn get_stories(
     let mut database = state.database.lock().await;
     let now = now_unix();
     database.stories.retain(|story| !story_expired(story, now));
-    let friends: HashSet<String> = database
-        .friendships
+    let following: HashSet<String> = database
+        .follows
         .iter()
-        .filter_map(|friendship| {
-            if friendship.user_a == email {
-                Some(friendship.user_b.clone())
-            } else if friendship.user_b == email {
-                Some(friendship.user_a.clone())
-            } else {
-                None
-            }
-        })
+        .filter(|follow| follow.follower_email == email)
+        .map(|follow| follow.followed_email.clone())
         .collect();
     let stories = database
         .stories
         .iter()
-        .filter(|story| can_view_story(&story.author_email, &email, &friends))
+        .filter(|story| can_view_story(&story.author_email, &email, &following))
         .cloned()
         .collect();
     Ok(Json(stories))
@@ -1936,10 +2479,7 @@ async fn create_story(
         .iter()
         .any(|prefix| video.starts_with(prefix));
         if !allowed_type {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                "Desteklenmeyen video türü.".into(),
-            ));
+            return Err((StatusCode::BAD_REQUEST, "Desteklenmeyen video türü.".into()));
         }
     }
     let now = now_unix();
@@ -1971,72 +2511,307 @@ async fn create_story(
     Ok(Json(story))
 }
 
-// 1. Postları Getir (Ev Sekmesi)
-async fn get_posts(State(state): State<Arc<AppState>>) -> Json<Vec<PostModel>> {
-    let posts = state.posts.lock().await;
-    Json(posts.clone())
+async fn get_posts(
+    Query(query): Query<PostsQuery>,
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<PostResponse>>, (StatusCode, String)> {
+    let viewer_email = get_authenticated_email(&headers, &state).await?;
+    let database = state.database.lock().await;
+    let following: HashSet<&str> = database
+        .follows
+        .iter()
+        .filter(|follow| follow.follower_email == viewer_email)
+        .map(|follow| follow.followed_email.as_str())
+        .collect();
+    let author_email = query.author.as_deref().and_then(|nick| {
+        database
+            .users
+            .iter()
+            .find(|user| !user.disabled && user.nick.eq_ignore_ascii_case(nick))
+            .map(|user| user.email.as_str())
+    });
+    let scope = query.scope.as_deref().unwrap_or("feed");
+    let posts = database
+        .posts
+        .iter()
+        .filter(|post| match (query.author.as_deref(), author_email) {
+            (Some(_), Some(_)) => post
+                .author
+                .eq_ignore_ascii_case(query.author.as_deref().unwrap_or_default()),
+            (Some(_), None) => false,
+            (None, _) if scope == "explore" => database
+                .users
+                .iter()
+                .any(|user| !user.disabled && user.nick.eq_ignore_ascii_case(&post.author)),
+            (None, _) => database
+                .users
+                .iter()
+                .find(|user| user.nick.eq_ignore_ascii_case(&post.author) && !user.disabled)
+                .is_some_and(|user| {
+                    user.email == viewer_email || following.contains(user.email.as_str())
+                }),
+        })
+        .map(|post| post_response(post, &viewer_email, &database.saved_posts))
+        .collect();
+    Ok(Json(posts))
 }
 
-// 2. Yeni Post Gönder (Resim/Yazı Paylaşımı)
 async fn create_post(
+    headers: HeaderMap,
     State(state): State<Arc<AppState>>,
     Json(payload): Json<CreatePostPayload>,
-) -> Json<PostModel> {
-    let mut posts = state.posts.lock().await;
-    let new_post = PostModel {
-        id: (posts.len() + 1) as u64,
-        author: payload.author,
-        content: payload.content,
-        likes: 0,
-        created_at: "Şimdi".into(),
-    };
-    posts.insert(0, new_post.clone()); // En başa ekle
-    Json(new_post)
-}
-
-// 3. Post Beğen (Like Butonu)
-async fn like_post(Path(id): Path<u64>, State(state): State<Arc<AppState>>) -> Json<String> {
-    let mut posts = state.posts.lock().await;
-    if let Some(post) = posts.iter_mut().find(|p| p.id == id) {
-        post.likes += 1;
-        return Json("Beğenildi!".into());
+) -> Result<Json<PostResponse>, (StatusCode, String)> {
+    let content = payload.content.trim();
+    if content.chars().count() > 2000 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Gönderi en fazla 2000 karakter olabilir.".into(),
+        ));
     }
-    Json("Post bulunamadı.".into())
+    if content.is_empty() && payload.image.is_none() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Metin veya görsel eklemelisin.".into(),
+        ));
+    }
+    if payload
+        .image
+        .as_deref()
+        .is_some_and(|image| !valid_avatar_data_url(image))
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Görsel biçimi geçersiz veya dosya çok büyük.".into(),
+        ));
+    }
+    let email = get_authenticated_email(&headers, &state).await?;
+    let mut database = state.database.lock().await;
+    let author = database
+        .users
+        .iter()
+        .find(|user| user.email == email && !user.disabled)
+        .map(|user| user.nick.clone())
+        .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Hesap bulunamadı.".into()))?;
+    let new_post = PostModel {
+        id: database
+            .posts
+            .iter()
+            .map(|post| post.id)
+            .max()
+            .unwrap_or(0)
+            .saturating_add(1),
+        author,
+        content: content.to_string(),
+        likes: 0,
+        created_at: "Az önce".into(),
+        liked_by: Vec::new(),
+        image: payload.image,
+        comments: Vec::new(),
+    };
+    database.posts.insert(0, new_post.clone());
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Gönderi kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Gönderi kaydedilemedi.".into(),
+        )
+    })?;
+    Ok(Json(post_response(
+        &new_post,
+        &email,
+        &database.saved_posts,
+    )))
 }
 
-fn default_groups() -> Vec<GroupModel> {
-    ["Yazılım Topluluğu", "Gamer Odası"]
-        .into_iter()
-        .enumerate()
-        .map(|(index, name)| GroupModel {
-            id: index as u64 + 1,
-            name: name.into(),
-            members_count: if index == 0 { 15 } else { 8 },
-            owner_email: None,
-            moderator_emails: Vec::new(),
-            member_emails: Vec::new(),
-            categories: vec![
-                ChannelCategory {
-                    id: "general".into(),
-                    name: "GENEL".into(),
-                    channels: vec![GroupChannel {
-                        id: "general-chat".into(),
-                        name: "genel-sohbet".into(),
-                        kind: "text".into(),
-                    }],
-                },
-                ChannelCategory {
-                    id: "voice".into(),
-                    name: "SES ODALARI".into(),
-                    channels: vec![GroupChannel {
-                        id: "voice-room".into(),
-                        name: "Ses Odası".into(),
-                        kind: "voice".into(),
-                    }],
-                },
-            ],
-        })
-        .collect()
+async fn like_post(
+    Path(id): Path<u64>,
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<PostResponse>, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let mut database = state.database.lock().await;
+    let post = database
+        .posts
+        .iter_mut()
+        .find(|post| post.id == id)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "Gönderi bulunamadı.".into()))?;
+    if let Some(index) = post
+        .liked_by
+        .iter()
+        .position(|liked_email| liked_email == &email)
+    {
+        post.liked_by.remove(index);
+    } else {
+        post.liked_by.push(email.clone());
+    }
+    post.likes = post.liked_by.len() as u32;
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Gönderi beğenisi kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Beğeni kaydedilemedi.".into(),
+        )
+    })?;
+    let post = database
+        .posts
+        .iter()
+        .find(|post| post.id == id)
+        .expect("post remains after update");
+    Ok(Json(post_response(post, &email, &database.saved_posts)))
+}
+
+async fn add_post_comment(
+    Path(id): Path<u64>,
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<CreatePostCommentPayload>,
+) -> Result<Json<PostResponse>, (StatusCode, String)> {
+    let content = payload.content.trim();
+    if content.is_empty() || content.chars().count() > 500 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Yorum 1-500 karakter arasında olmalı.".into(),
+        ));
+    }
+    let email = get_authenticated_email(&headers, &state).await?;
+    let mut database = state.database.lock().await;
+    let author = database
+        .users
+        .iter()
+        .find(|user| user.email == email && !user.disabled)
+        .map(|user| user.nick.clone())
+        .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Hesap bulunamadı.".into()))?;
+    let post = database
+        .posts
+        .iter_mut()
+        .find(|post| post.id == id)
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "Gönderi bulunamadı.".into()))?;
+    post.comments.push(PostComment {
+        id: Uuid::new_v4().to_string(),
+        author,
+        content: content.to_string(),
+        created_at: "Az önce".into(),
+    });
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Yorum kaydedilemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Yorum kaydedilemedi.".into(),
+        )
+    })?;
+    let post = database
+        .posts
+        .iter()
+        .find(|post| post.id == id)
+        .expect("post remains after comment");
+    Ok(Json(post_response(post, &email, &database.saved_posts)))
+}
+
+async fn set_post_saved(
+    Path(id): Path<u64>,
+    headers: HeaderMap,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<SetPostSavedPayload>,
+) -> Result<Json<PostResponse>, (StatusCode, String)> {
+    let email = get_authenticated_email(&headers, &state).await?;
+    let mut database = state.database.lock().await;
+    if !database.posts.iter().any(|post| post.id == id) {
+        return Err((StatusCode::NOT_FOUND, "Gönderi bulunamadı.".into()));
+    }
+    if payload.saved {
+        if !database
+            .saved_posts
+            .iter()
+            .any(|saved| saved.email == email && saved.post_id == id)
+        {
+            database.saved_posts.push(SavedPost {
+                email: email.clone(),
+                post_id: id,
+            });
+        }
+    } else {
+        database
+            .saved_posts
+            .retain(|saved| saved.email != email || saved.post_id != id);
+    }
+    persist_database(&database).await.map_err(|error| {
+        eprintln!("Gönderi kaydı güncellenemedi: {error}");
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Kaydedilen gönderiler güncellenemedi.".into(),
+        )
+    })?;
+    let post = database
+        .posts
+        .iter()
+        .find(|post| post.id == id)
+        .expect("post exists after save");
+    Ok(Json(post_response(post, &email, &database.saved_posts)))
+}
+
+fn migrate_default_groups(database: &mut Database) -> bool {
+    let previous_len = database.groups.len();
+    database.groups.retain(|group| {
+        group.owner_email.is_some()
+            || !matches!(group.name.as_str(), "Yazılım Topluluğu" | "Gamer Odası")
+    });
+    database.groups.len() != previous_len
+}
+
+fn ensure_private_test_server(database: &mut Database, owner_email: &str) -> bool {
+    if database.groups.iter().any(|group| {
+        group.is_private
+            && group.name == "Gizli Test Sunucusu"
+            && group.owner_email.as_deref() == Some(owner_email)
+    }) {
+        return false;
+    }
+    let id = database
+        .groups
+        .iter()
+        .map(|group| group.id)
+        .max()
+        .unwrap_or(0)
+        .saturating_add(1);
+    database.groups.push(GroupModel {
+        id,
+        name: "Gizli Test Sunucusu".into(),
+        members_count: 1,
+        is_private: true,
+        owner_email: Some(owner_email.into()),
+        moderator_emails: Vec::new(),
+        member_emails: vec![owner_email.into()],
+        categories: default_group_categories(),
+    });
+    true
+}
+
+fn default_group_categories() -> Vec<ChannelCategory> {
+    vec![
+        ChannelCategory {
+            id: "general".into(),
+            name: "GENEL".into(),
+            channels: vec![GroupChannel {
+                id: "general-chat".into(),
+                name: "genel-sohbet".into(),
+                kind: "text".into(),
+            }],
+        },
+        ChannelCategory {
+            id: "voice".into(),
+            name: "SES ODALARI".into(),
+            channels: vec![GroupChannel {
+                id: "voice-room".into(),
+                name: "Ses Odası".into(),
+                kind: "voice".into(),
+            }],
+        },
+    ]
+}
+
+fn can_access_group(group: &GroupModel, email: &str) -> bool {
+    !group.is_private || group.owner_email.as_deref() == Some(email)
 }
 
 fn group_view(group: &GroupModel, email: &str, database: &Database) -> GroupView {
@@ -2061,6 +2836,7 @@ fn group_view(group: &GroupModel, email: &str, database: &Database) -> GroupView
         id: group.id,
         name: group.name.clone(),
         members_count: group.members_count,
+        is_private: group.is_private,
         owner,
         role: role.into(),
         categories: group.categories.clone(),
@@ -2112,6 +2888,7 @@ async fn get_groups(
         database
             .groups
             .iter()
+            .filter(|group| can_access_group(group, &email))
             .map(|group| group_view(group, &email, &database))
             .collect(),
     ))
@@ -2141,10 +2918,11 @@ async fn create_group(
             + 1,
         name: name.to_string(),
         members_count: 1,
+        is_private: false,
         owner_email: Some(email.clone()),
         moderator_emails: Vec::new(),
         member_emails: vec![email.clone()],
-        categories: default_groups()[0].categories.clone(),
+        categories: default_group_categories(),
     };
     database.groups.push(new_group.clone());
     persist_database(&database).await.map_err(|error| {
@@ -2169,6 +2947,9 @@ async fn delete_group(
         .iter()
         .find(|group| group.id == group_id)
         .ok_or_else(|| (StatusCode::NOT_FOUND, "Grup bulunamadı.".into()))?;
+    if !can_access_group(group, &email) {
+        return Err((StatusCode::NOT_FOUND, "Grup bulunamadı.".into()));
+    }
     if !can_delete_group(group, &email) {
         return Err((
             StatusCode::FORBIDDEN,
@@ -2214,6 +2995,9 @@ async fn add_group_channel(
         .iter_mut()
         .find(|group| group.id == group_id)
         .ok_or_else(|| (StatusCode::NOT_FOUND, "Topluluk bulunamadı.".into()))?;
+    if !can_access_group(group, &email) {
+        return Err((StatusCode::NOT_FOUND, "Topluluk bulunamadı.".into()));
+    }
     if !can_manage_group_channels(group, &email) {
         return Err((
             StatusCode::FORBIDDEN,
@@ -2278,6 +3062,9 @@ async fn delete_group_channel(
         .iter_mut()
         .find(|group| group.id == group_id)
         .ok_or_else(|| (StatusCode::NOT_FOUND, "Grup bulunamadı.".into()))?;
+    if !can_access_group(group, &email) {
+        return Err((StatusCode::NOT_FOUND, "Grup bulunamadı.".into()));
+    }
     if !can_manage_group_channels(group, &email) {
         return Err((
             StatusCode::FORBIDDEN,
@@ -2324,6 +3111,9 @@ async fn assign_group_moderator(
         .iter_mut()
         .find(|group| group.id == group_id)
         .ok_or_else(|| (StatusCode::NOT_FOUND, "Topluluk bulunamadı.".into()))?;
+    if !can_access_group(group, &email) {
+        return Err((StatusCode::NOT_FOUND, "Topluluk bulunamadı.".into()));
+    }
     if !can_assign_group_moderators(group, &email) {
         return Err((
             StatusCode::FORBIDDEN,
@@ -2369,18 +3159,32 @@ async fn websocket_handler(
 
 async fn group_websocket_handler(
     Path(group_id): Path<u64>,
+    headers: HeaderMap,
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
 ) -> Result<impl axum::response::IntoResponse, StatusCode> {
-    if !state
+    let is_private = state
         .database
         .lock()
         .await
         .groups
         .iter()
-        .any(|group| group.id == group_id)
-    {
-        return Err(StatusCode::NOT_FOUND);
+        .find(|group| group.id == group_id)
+        .map(|group| group.is_private)
+        .ok_or(StatusCode::NOT_FOUND)?;
+    if is_private {
+        let email = get_authenticated_email(&headers, &state)
+            .await
+            .map_err(|_| StatusCode::NOT_FOUND)?;
+        let database = state.database.lock().await;
+        if !database
+            .groups
+            .iter()
+            .find(|group| group.id == group_id)
+            .is_some_and(|group| can_access_group(group, &email))
+        {
+            return Err(StatusCode::NOT_FOUND);
+        }
     }
 
     let tx = {
@@ -2424,6 +3228,9 @@ async fn group_channel_websocket_handler(
             .iter_mut()
             .find(|group| group.id == group_id)
             .ok_or(StatusCode::NOT_FOUND)?;
+        if !can_access_group(group, &email) {
+            return Err(StatusCode::NOT_FOUND);
+        }
         if !group_has_channel(group, &channel_id) {
             return Err(StatusCode::NOT_FOUND);
         }
@@ -2639,12 +3446,119 @@ async fn handle_socket(socket: WebSocket, tx: broadcast::Sender<String>) {
 mod tests {
     use super::*;
 
+    fn test_app_state() -> AppState {
+        let (tx, _) = broadcast::channel(1);
+        AppState {
+            notifications: Mutex::new(Vec::new()),
+            database: Mutex::new(Database::default()),
+            group_channels: Mutex::new(HashMap::new()),
+            group_presence: Mutex::new(HashMap::new()),
+            group_ws_tickets: Mutex::new(HashMap::new()),
+            user_presence: Mutex::new(HashMap::new()),
+            email_code_challenges: Mutex::new(HashMap::new()),
+            email_code_cooldowns: Mutex::new(HashMap::new()),
+            tx,
+        }
+    }
+
     #[test]
     fn validates_email_syntax() {
         assert!(validate_email("user@example.com"));
         assert!(!validate_email("user@localhost"));
         assert!(!validate_email("not-an-email"));
         assert!(!validate_email("user @example.com"));
+    }
+
+    #[test]
+    fn email_codes_are_six_digits_and_bound_to_a_challenge() {
+        for _ in 0..100 {
+            let code = generate_email_code();
+            assert_eq!(code.len(), 6);
+            assert!(code.bytes().all(|byte| byte.is_ascii_digit()));
+            assert_ne!(
+                email_code_digest("challenge-one", &code),
+                email_code_digest("challenge-two", &code)
+            );
+        }
+    }
+
+    #[test]
+    fn enabling_email_verification_revokes_legacy_sessions_once() {
+        let mut database = Database {
+            sessions: HashMap::from([(
+                "legacy-session".into(),
+                Session {
+                    email: "user@example.com".into(),
+                },
+            )]),
+            ..Database::default()
+        };
+
+        assert!(migrate_email_verification(&mut database));
+        assert!(database.sessions.is_empty());
+        assert!(database.email_verification_migrated);
+        assert!(!migrate_email_verification(&mut database));
+    }
+
+    #[tokio::test]
+    async fn email_code_challenge_expires_and_locks_after_five_wrong_attempts() {
+        let state = test_app_state();
+        let challenge_id = "challenge".to_string();
+        let code = "012345";
+        state.email_code_challenges.lock().await.insert(
+            challenge_id.clone(),
+            EmailCodeChallenge {
+                email: "user@example.com".into(),
+                nick: "User".into(),
+                password_hash: "hash".into(),
+                purpose: "login".into(),
+                code_hash: email_code_digest(&challenge_id, code),
+                expires_at: now_unix() + 60,
+                attempts_remaining: 5,
+                account_exists: true,
+            },
+        );
+
+        for _ in 0..5 {
+            assert!(
+                take_verified_email_code(&state, &challenge_id, "999999", "login", "register")
+                    .await
+                    .is_err()
+            );
+        }
+        assert!(
+            !state
+                .email_code_challenges
+                .lock()
+                .await
+                .contains_key(&challenge_id)
+        );
+
+        state.email_code_challenges.lock().await.insert(
+            challenge_id.clone(),
+            EmailCodeChallenge {
+                email: "user@example.com".into(),
+                nick: "User".into(),
+                password_hash: "hash".into(),
+                purpose: "login".into(),
+                code_hash: email_code_digest(&challenge_id, code),
+                expires_at: now_unix() - 1,
+                attempts_remaining: 5,
+                account_exists: true,
+            },
+        );
+        assert!(
+            take_verified_email_code(&state, &challenge_id, code, "login", "register")
+                .await
+                .is_err()
+        );
+        assert!(
+            !state
+                .email_code_challenges
+                .lock()
+                .await
+                .contains_key(&challenge_id)
+        );
     }
 
     #[test]
@@ -2673,6 +3587,37 @@ mod tests {
     }
 
     #[test]
+    fn post_responses_include_viewer_actions_without_exposing_emails() {
+        let post = PostModel {
+            id: 7,
+            author: "Alice".into(),
+            content: "Hello".into(),
+            likes: 1,
+            created_at: "Az önce".into(),
+            liked_by: vec!["alice@example.com".into()],
+            image: None,
+            comments: Vec::new(),
+        };
+        let saved_posts = vec![SavedPost {
+            email: "alice@example.com".into(),
+            post_id: 7,
+        }];
+        let response =
+            serde_json::to_value(post_response(&post, "alice@example.com", &saved_posts)).unwrap();
+        assert_eq!(response["is_liked"], true);
+        assert_eq!(response["is_saved"], true);
+        assert!(response.get("liked_by").is_none());
+        assert!(!response.to_string().contains("@example.com"));
+    }
+
+    #[test]
+    fn legacy_database_loads_without_social_post_fields() {
+        let database: Database = serde_json::from_str(r#"{"users":[],"groups":[]}"#).unwrap();
+        assert!(database.posts.is_empty());
+        assert!(database.saved_posts.is_empty());
+    }
+
+    #[test]
     fn validates_profile_photo_data_urls_and_accepts_legacy_users() {
         assert!(valid_avatar_data_url("data:image/png;base64,aGVsbG8="));
         assert!(valid_avatar_data_url("data:image/webp;base64,aGVsbG8="));
@@ -2693,6 +3638,7 @@ mod tests {
             id: 1,
             name: "Test".into(),
             members_count: 1,
+            is_private: false,
             owner_email: Some("owner@example.com".into()),
             moderator_emails: Vec::new(),
             member_emails: vec!["owner@example.com".into()],
@@ -2740,6 +3686,7 @@ mod tests {
             id: 7,
             name: "Test".into(),
             members_count: 2,
+            is_private: false,
             owner_email: Some("owner@example.com".into()),
             moderator_emails: vec!["moderator@example.com".into()],
             member_emails: vec!["owner@example.com".into(), "moderator@example.com".into()],
@@ -2769,23 +3716,23 @@ mod tests {
     }
 
     #[test]
-    fn stories_are_visible_only_to_the_owner_and_friends() {
-        let friends = HashSet::from(["friend@example.com".to_string()]);
+    fn stories_are_visible_only_to_the_owner_and_followers() {
+        let following = HashSet::from(["friend@example.com".to_string()]);
 
         assert!(can_view_story(
             "owner@example.com",
             "owner@example.com",
-            &friends
+            &following
         ));
         assert!(can_view_story(
             "friend@example.com",
             "viewer@example.com",
-            &friends
+            &following
         ));
         assert!(!can_view_story(
             "stranger@example.com",
             "viewer@example.com",
-            &friends
+            &following
         ));
     }
 
@@ -2837,10 +3784,58 @@ mod tests {
         assert_eq!(profile.followers, vec!["Friend"]);
         assert_eq!(profile.following, vec!["Friend"]);
         assert!(profile.is_following);
+        assert!(profile.follows_viewer);
         assert_eq!(profile.posts, 3);
         let json = serde_json::to_string(&profile).unwrap();
         assert!(!json.contains("@example.com"));
         assert!(!json.contains("12"));
+    }
+
+    #[test]
+    fn profile_directory_returns_real_active_users_and_follow_state() {
+        let database = Database {
+            users: vec![
+                User {
+                    email: "viewer@example.com".into(),
+                    nick: "Viewer".into(),
+                    password_hash: String::new(),
+                    disabled: false,
+                    avatar_url: None,
+                },
+                User {
+                    email: "friend@example.com".into(),
+                    nick: "Friend".into(),
+                    password_hash: String::new(),
+                    disabled: false,
+                    avatar_url: Some("data:image/png;base64,AA==".into()),
+                },
+                User {
+                    email: "disabled@example.com".into(),
+                    nick: "FriendDisabled".into(),
+                    password_hash: String::new(),
+                    disabled: true,
+                    avatar_url: None,
+                },
+            ],
+            follows: vec![
+                Follow {
+                    follower_email: "viewer@example.com".into(),
+                    followed_email: "friend@example.com".into(),
+                },
+                Follow {
+                    follower_email: "friend@example.com".into(),
+                    followed_email: "viewer@example.com".into(),
+                },
+            ],
+            ..Database::default()
+        };
+
+        let profiles = search_profile_directory(&database, "viewer@example.com", Some("friend"));
+        assert_eq!(profiles.len(), 1);
+        assert_eq!(profiles[0].nick, "Friend");
+        assert_eq!(profiles[0].followers, 1);
+        assert!(profiles[0].is_following);
+        assert!(profiles[0].follows_viewer);
     }
 
     #[test]
@@ -2896,15 +3891,87 @@ mod tests {
     }
 
     #[test]
+    fn private_group_is_only_visible_to_its_owner() {
+        let group = GroupModel {
+            id: 8,
+            name: "Gizli Test Sunucusu".into(),
+            members_count: 1,
+            is_private: true,
+            owner_email: Some("owner@example.com".into()),
+            moderator_emails: Vec::new(),
+            member_emails: vec!["owner@example.com".into()],
+            categories: default_group_categories(),
+        };
+
+        assert!(can_access_group(&group, "owner@example.com"));
+        assert!(!can_access_group(&group, "other@example.com"));
+        let legacy_group: GroupModel =
+            serde_json::from_str(r#"{"id":9,"name":"Legacy","members_count":1}"#).unwrap();
+        assert!(can_access_group(&legacy_group, "anyone@example.com"));
+    }
+
+    #[test]
+    fn private_test_server_creation_is_idempotent() {
+        let mut database = Database::default();
+        assert!(ensure_private_test_server(
+            &mut database,
+            "reyzz@example.com"
+        ));
+        assert!(!ensure_private_test_server(
+            &mut database,
+            "reyzz@example.com"
+        ));
+        assert_eq!(database.groups.len(), 1);
+        assert_eq!(database.groups[0].name, "Gizli Test Sunucusu");
+        assert_eq!(database.groups[0].members_count, 1);
+        assert!(database.groups[0].is_private);
+    }
+
+    #[test]
+    fn default_demo_servers_are_migrated_without_removing_owned_groups() {
+        let mut database = Database {
+            groups: vec![
+                GroupModel {
+                    id: 1,
+                    name: "Yazılım Topluluğu".into(),
+                    members_count: 15,
+                    is_private: false,
+                    owner_email: None,
+                    moderator_emails: Vec::new(),
+                    member_emails: Vec::new(),
+                    categories: default_group_categories(),
+                },
+                GroupModel {
+                    id: 2,
+                    name: "Gamer Odası".into(),
+                    members_count: 1,
+                    is_private: false,
+                    owner_email: Some("owner@example.com".into()),
+                    moderator_emails: Vec::new(),
+                    member_emails: vec!["owner@example.com".into()],
+                    categories: default_group_categories(),
+                },
+            ],
+            ..Database::default()
+        };
+
+        assert!(migrate_default_groups(&mut database));
+        assert_eq!(database.groups.len(), 1);
+        assert_eq!(database.groups[0].name, "Gamer Odası");
+        assert!(!migrate_default_groups(&mut database));
+    }
+
+    #[test]
     fn group_creator_and_moderator_permissions_are_server_side_and_persisted() {
         let group = GroupModel {
             id: 3,
             name: "Test".into(),
             members_count: 1,
+            is_private: false,
             owner_email: Some("founder@example.com".into()),
             moderator_emails: vec!["mod@example.com".into()],
             member_emails: vec!["founder@example.com".into(), "mod@example.com".into()],
-            categories: default_groups()[0].categories.clone(),
+            categories: default_group_categories(),
         };
         assert!(can_manage_group_channels(&group, "founder@example.com"));
         assert!(can_manage_group_channels(&group, "mod@example.com"));
@@ -2940,6 +4007,7 @@ mod tests {
             id: 9,
             name: "Test".into(),
             members_count: 3,
+            is_private: false,
             owner_email: Some("owner@example.com".into()),
             moderator_emails: vec!["moderator@example.com".into()],
             member_emails: vec![
@@ -2983,7 +4051,16 @@ mod tests {
 
     #[test]
     fn group_channels_are_resolved_individually_for_channel_scoped_sockets() {
-        let group = default_groups().remove(0);
+        let group = GroupModel {
+            id: 1,
+            name: "Test".into(),
+            members_count: 1,
+            is_private: false,
+            owner_email: Some("owner@example.com".into()),
+            moderator_emails: Vec::new(),
+            member_emails: vec!["owner@example.com".into()],
+            categories: default_group_categories(),
+        };
 
         assert!(group_has_channel(&group, "general-chat"));
         assert!(group_has_channel(&group, "voice-room"));
@@ -2995,31 +4072,41 @@ mod tests {
         let group: GroupModel =
             serde_json::from_str(r#"{"id":1,"name":"Legacy","members_count":4}"#).unwrap();
         assert!(group.owner_email.is_none());
+        assert!(!group.is_private);
         assert!(group.moderator_emails.is_empty());
         assert!(group.categories.is_empty());
 
         let mut legacy_database: Database =
             serde_json::from_str(r#"{"groups":[{"id":1,"name":"Legacy","members_count":4}]}"#)
                 .unwrap();
-        legacy_database.groups[0].categories = default_groups()[0].categories.clone();
+        legacy_database.groups[0].categories = default_group_categories();
         let upgraded: Database =
             serde_json::from_str(&serde_json::to_string(&legacy_database).unwrap()).unwrap();
         assert_eq!(upgraded.groups[0].categories[0].name, "GENEL");
     }
 
     #[test]
-    fn direct_messages_require_friendship_and_keep_emails_out_of_api_responses() {
+    fn direct_messages_require_mutual_follow_and_keep_emails_out_of_api_responses() {
         let mut database = Database::default();
-        database.friendships.push(Friendship {
-            user_a: "alice@example.com".into(),
-            user_b: "bob@example.com".into(),
+        database.follows.push(Follow {
+            follower_email: "alice@example.com".into(),
+            followed_email: "bob@example.com".into(),
         });
-        assert!(are_friends(
+        assert!(!can_exchange_direct_messages(
             &database,
             "alice@example.com",
             "bob@example.com"
         ));
-        assert!(!are_friends(
+        database.follows.push(Follow {
+            follower_email: "bob@example.com".into(),
+            followed_email: "alice@example.com".into(),
+        });
+        assert!(can_exchange_direct_messages(
+            &database,
+            "alice@example.com",
+            "bob@example.com"
+        ));
+        assert!(!can_exchange_direct_messages(
             &database,
             "alice@example.com",
             "stranger@example.com"
@@ -3048,6 +4135,66 @@ mod tests {
         .unwrap();
         assert!(response.get("from_email").is_none());
         assert!(response.get("to_email").is_none());
+    }
+
+    #[test]
+    fn legacy_friendships_migrate_to_mutual_follows_once() {
+        let mut database = Database {
+            users: vec![
+                User {
+                    email: "alice@example.com".into(),
+                    nick: "Alice".into(),
+                    password_hash: String::new(),
+                    disabled: false,
+                    avatar_url: None,
+                },
+                User {
+                    email: "bob@example.com".into(),
+                    nick: "Bob".into(),
+                    password_hash: String::new(),
+                    disabled: false,
+                    avatar_url: None,
+                },
+                User {
+                    email: "disabled@example.com".into(),
+                    nick: "Disabled".into(),
+                    password_hash: String::new(),
+                    disabled: true,
+                    avatar_url: None,
+                },
+            ],
+            friend_requests: vec![FriendRequest {
+                id: "old-request".into(),
+                from_email: "alice@example.com".into(),
+                to_email: "bob@example.com".into(),
+            }],
+            friendships: vec![
+                Friendship {
+                    user_a: "alice@example.com".into(),
+                    user_b: "bob@example.com".into(),
+                },
+                Friendship {
+                    user_a: "alice@example.com".into(),
+                    user_b: "disabled@example.com".into(),
+                },
+            ],
+            follows: vec![Follow {
+                follower_email: "alice@example.com".into(),
+                followed_email: "bob@example.com".into(),
+            }],
+            ..Database::default()
+        };
+
+        assert!(migrate_friendships_to_follows(&mut database));
+        assert_eq!(database.follows.len(), 2);
+        assert!(can_exchange_direct_messages(
+            &database,
+            "alice@example.com",
+            "bob@example.com"
+        ));
+        assert!(database.friendships.is_empty());
+        assert!(database.friend_requests.is_empty());
+        assert!(!migrate_friendships_to_follows(&mut database));
     }
 
     #[test]

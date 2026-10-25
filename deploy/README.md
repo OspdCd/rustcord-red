@@ -25,7 +25,7 @@ cp .env.example .env
 chmod 600 .env
 ```
 
-Set `DOMAIN`, the Cloudflare Turnstile site/secret keys, and a long random `CROWDSEC_BOUNCER_KEY` in `.env`. Generate the latter with `openssl rand -hex 32`. Keep `.env` private and out of source control.
+Set `DOMAIN`, the Cloudflare Turnstile site/secret keys, `SMTP_USERNAME` to the Gmail account that sends RustCord codes, `SMTP_APP_PASSWORD` to that account's Google App Password, and a long random `CROWDSEC_BOUNCER_KEY` in `.env`. In the sender's Google Account, enable 2-Step Verification, then create an App Password under Security → App passwords. Use that App Password, never the account's normal password. Generate the CrowdSec key with `openssl rand -hex 32`. Keep `.env` private and out of source control.
 
 Start the app, ModSecurity/CRS, and CrowdSec:
 
@@ -34,6 +34,10 @@ docker compose up -d --build
 ```
 
 The WAF is bound only to `127.0.0.1:8081`; the app has no published host port. Do not publish either port to the Internet.
+
+RustCord sends email verification codes for registration and every new sign-in, and uses the same Gmail sender for password recovery. Codes expire after ten minutes, are limited to five attempts, and a new code can be requested once per minute for each address and purpose; the server also caps code sends at 30 per minute. Configure a valid Gmail sender and App Password before starting; sign-in, registration, and recovery requests that need email delivery fail explicitly when SMTP is unavailable. Existing sessions are revoked once when email verification is first enabled so old unverified sessions cannot bypass the new login check.
+
+For local development, `start-local.ps1` prompts for the Gmail address and reads the App Password as a secure prompt if `SMTP_USERNAME` and `SMTP_APP_PASSWORD` are not already set in the process environment.
 
 ## 3. Enable host Nginx, CrowdSec, and Fail2ban
 

@@ -21,6 +21,29 @@ finally {
 }
 
 $env:TURNSTILE_SITE_KEY = '0x4AAAAAAFfRY37-7PGoYfxH'
+
+$ownsSmtpUsername = $false
+$ownsSmtpPassword = $false
+if ([string]::IsNullOrWhiteSpace($env:SMTP_USERNAME)) {
+    $env:SMTP_USERNAME = Read-Host 'Gmail address used to send RustCord verification codes'
+    $ownsSmtpUsername = $true
+}
+if ([string]::IsNullOrWhiteSpace($env:SMTP_APP_PASSWORD)) {
+    $secureSmtpPassword = Read-Host 'Gmail app password (create one in your Google Account; not your normal password)' -AsSecureString
+    if ($secureSmtpPassword.Length -eq 0) {
+        throw 'Gmail app password is required for registration, sign-in, and password recovery.'
+    }
+    $smtpPasswordPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureSmtpPassword)
+    try {
+        $env:SMTP_APP_PASSWORD = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($smtpPasswordPointer)
+    }
+    finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($smtpPasswordPointer)
+        Remove-Variable secureSmtpPassword
+    }
+    $ownsSmtpPassword = $true
+}
+
 $ownsYouTubeApiKey = $false
 if ([string]::IsNullOrWhiteSpace($env:YOUTUBE_API_KEY)) {
     $secureYouTubeApiKey = Read-Host 'YouTube Data API key (optional; press Enter to skip)' -AsSecureString
@@ -67,6 +90,12 @@ try {
 finally {
     Remove-Item Env:TURNSTILE_SECRET_KEY -ErrorAction SilentlyContinue
     Remove-Item Env:TURNSTILE_SITE_KEY -ErrorAction SilentlyContinue
+    if ($ownsSmtpUsername) {
+        Remove-Item Env:SMTP_USERNAME -ErrorAction SilentlyContinue
+    }
+    if ($ownsSmtpPassword) {
+        Remove-Item Env:SMTP_APP_PASSWORD -ErrorAction SilentlyContinue
+    }
     if ($ownsYouTubeApiKey) {
         Remove-Item Env:YOUTUBE_API_KEY -ErrorAction SilentlyContinue
     }
