@@ -136,6 +136,16 @@ struct GroupWebSocketTicket {
     expires_at: i64,
 }
 
+#[derive(Deserialize)]
+struct ChatMessagePayload {
+    text: String,
+}
+
+#[derive(Serialize)]
+struct SessionTokenResponse {
+    session: String,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct NotificationModel {
     id: u64,
@@ -1813,7 +1823,7 @@ async fn change_password(
     headers: HeaderMap,
     State(state): State<Arc<AppState>>,
     Json(payload): Json<ChangePasswordPayload>,
-) -> Result<StatusCode, (StatusCode, String)> {
+) -> Result<(HeaderMap, Json<SessionTokenResponse>), (StatusCode, String)> {
     if !(8..=128).contains(&payload.new_password.chars().count()) {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -1831,6 +1841,8 @@ async fn change_password(
         return Err((StatusCode::UNAUTHORIZED, "Mevcut şifre hatalı.".into()));
     }
     user.password_hash = hash_password(&payload.new_password)?;
+    let session = Uuid::new_v4().to_string();
+    rotate_user_sessions(&mut database.sessions, &email, session.clone());
     persist_database(&database).await.map_err(|error| {
         eprintln!("Şifre değişikliği kaydedilemedi: {error}");
         (
@@ -1838,7 +1850,49 @@ async fn change_password(
             "Şifre değişikliği kaydedilemedi.".into(),
         )
     })?;
-    Ok(StatusCode::NO_CONTENT)
+    let secure_cookie = headers
+        .get(header::ORIGIN)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|origin| origin.starts_with("https://"))
+        || headers
+            .get("x-forwarded-proto")
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|protocol| protocol.eq_ignore_ascii_case("https"));
+    let cookie = format!(
+        "mortex_session={session}; Max-Age=31536000; Path=/; HttpOnly; SameSite=Lax{}",
+        if secure_cookie { "; Secure" } else { "" }
+    );
+    let mut response_headers = HeaderMap::new();
+    response_headers.insert(
+        header::SET_COOKIE,
+        HeaderValue::from_str(&cookie).map_err(|error| {
+            eprintln!("Oturum çerezi hazırlanamadı: {error}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Şifre değiştirildi ancak yeni oturum tarayıcıya aktarılamadı.".into(),
+            )
+        })?,
+    );
+    Ok((response_headers, Json(SessionTokenResponse { session })))
+}
+
+fn rotate_user_sessions(sessions: &mut HashMap<String, Session>, email: &str, new_token: String) {
+    sessions.retain(|_, session| session.email != email);
+    sessions.insert(
+        new_token,
+        Session {
+            email: email.to_string(),
+        },
+    );
+}
+
+fn authenticated_chat_message(author: &str, raw_message: &str) -> Option<String> {
+    let payload: ChatMessagePayload = serde_json::from_str(raw_message).ok()?;
+    let text = payload.text.trim();
+    if text.is_empty() || text.chars().count() > 500 {
+        return None;
+    }
+    Some(serde_json::json!({ "author": author, "text": text }).to_string())
 }
 
 async fn change_nickname(
@@ -3151,42 +3205,61 @@ async fn get_notifications(State(state): State<Arc<AppState>>) -> Json<Vec<Notif
 
 // 7. WebSocket Sohbet Motoru (Mesaj Sekmesi & DM)
 async fn websocket_handler(
+    Query(query): Query<GroupWebSocketQuery>,
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
-) -> impl axum::response::IntoResponse {
-    ws.on_upgrade(move |socket| handle_socket(socket, state.tx.clone()))
+) -> Result<impl axum::response::IntoResponse, StatusCode> {
+    let ticket = query.ticket.ok_or(StatusCode::UNAUTHORIZED)?;
+    let email = {
+        let mut tickets = state.group_ws_tickets.lock().await;
+        take_group_websocket_ticket(&mut tickets, &ticket, now_unix())
+    }
+    .ok_or(StatusCode::UNAUTHORIZED)?;
+    let nick = state
+        .database
+        .lock()
+        .await
+        .users
+        .iter()
+        .find(|user| user.email == email && !user.disabled)
+        .map(|user| user.nick.clone())
+        .ok_or(StatusCode::UNAUTHORIZED)?;
+    Ok(ws.on_upgrade(move |socket| handle_community_socket(socket, state.tx.clone(), nick)))
 }
 
 async fn group_websocket_handler(
     Path(group_id): Path<u64>,
-    headers: HeaderMap,
+    Query(query): Query<GroupWebSocketQuery>,
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
 ) -> Result<impl axum::response::IntoResponse, StatusCode> {
-    let is_private = state
-        .database
-        .lock()
-        .await
-        .groups
-        .iter()
-        .find(|group| group.id == group_id)
-        .map(|group| group.is_private)
-        .ok_or(StatusCode::NOT_FOUND)?;
-    if is_private {
-        let email = get_authenticated_email(&headers, &state)
-            .await
-            .map_err(|_| StatusCode::NOT_FOUND)?;
+    let ticket = query.ticket.ok_or(StatusCode::UNAUTHORIZED)?;
+    let email = {
+        let mut tickets = state.group_ws_tickets.lock().await;
+        take_group_websocket_ticket(&mut tickets, &ticket, now_unix())
+    }
+    .ok_or(StatusCode::UNAUTHORIZED)?;
+    let nick = {
         let database = state.database.lock().await;
         if !database
-            .groups
+            .users
             .iter()
-            .find(|group| group.id == group_id)
-            .is_some_and(|group| can_access_group(group, &email))
+            .any(|user| user.email == email && !user.disabled)
+            || !database
+                .groups
+                .iter()
+                .find(|group| group.id == group_id)
+                .is_some_and(|group| can_access_group(group, &email))
         {
             return Err(StatusCode::NOT_FOUND);
         }
-    }
-
+        database
+            .users
+            .iter()
+            .find(|user| user.email == email && !user.disabled)
+            .map(|user| user.nick.clone())
+            .ok_or(StatusCode::UNAUTHORIZED)?
+    };
     let tx = {
         let mut channels = state.group_channels.lock().await;
         channels
@@ -3194,7 +3267,9 @@ async fn group_websocket_handler(
             .or_insert_with(|| broadcast::channel(100).0)
             .clone()
     };
-    Ok(ws.on_upgrade(move |socket| handle_socket(socket, tx)))
+    Ok(ws.on_upgrade(move |socket| {
+        handle_group_channel_socket(socket, tx, state, group_id, email, nick)
+    }))
 }
 
 async fn group_channel_websocket_handler(
@@ -3214,15 +3289,14 @@ async fn group_channel_websocket_handler(
             .await
             .map_err(|_| StatusCode::UNAUTHORIZED)?,
     };
-    {
+    let nick = {
         let mut database = state.database.lock().await;
-        let user_exists = database
+        let nick = database
             .users
             .iter()
-            .any(|user| user.email == email && !user.disabled);
-        if !user_exists {
-            return Err(StatusCode::UNAUTHORIZED);
-        }
+            .find(|user| user.email == email && !user.disabled)
+            .map(|user| user.nick.clone())
+            .ok_or(StatusCode::UNAUTHORIZED)?;
         let group = database
             .groups
             .iter_mut()
@@ -3244,7 +3318,8 @@ async fn group_channel_websocket_handler(
                 StatusCode::INTERNAL_SERVER_ERROR
             })?;
         }
-    }
+        nick
+    };
 
     let channel_key = format!("{group_id}:{channel_id}");
     let tx = {
@@ -3254,11 +3329,9 @@ async fn group_channel_websocket_handler(
             .or_insert_with(|| broadcast::channel(100).0)
             .clone()
     };
-    Ok(
-        ws.on_upgrade(move |socket| {
-            handle_group_channel_socket(socket, tx, state, group_id, email)
-        }),
-    )
+    Ok(ws.on_upgrade(move |socket| {
+        handle_group_channel_socket(socket, tx, state, group_id, email, nick)
+    }))
 }
 
 #[derive(Deserialize)]
@@ -3368,6 +3441,7 @@ async fn handle_group_channel_socket(
     state: Arc<AppState>,
     group_id: u64,
     email: String,
+    nick: String,
 ) {
     let connection_id = Uuid::new_v4().to_string();
     let (mut sender, mut receiver) = socket.split();
@@ -3394,7 +3468,15 @@ async fn handle_group_channel_socket(
     });
     let mut receive_task = tokio::spawn(async move {
         while let Some(Ok(Message::Text(text))) = receiver.next().await {
-            let _ = tx.send(text.to_string());
+            let message = text.to_string();
+            let Ok(value) = serde_json::from_str::<serde_json::Value>(&message) else {
+                continue;
+            };
+            if value.get("type").is_some() {
+                let _ = tx.send(message);
+            } else if let Some(message) = authenticated_chat_message(&nick, &message) {
+                let _ = tx.send(message);
+            }
         }
     });
     tokio::select! {
@@ -3418,7 +3500,7 @@ async fn handle_group_channel_socket(
     broadcast_group_presence(&state, group_id).await;
 }
 
-async fn handle_socket(socket: WebSocket, tx: broadcast::Sender<String>) {
+async fn handle_community_socket(socket: WebSocket, tx: broadcast::Sender<String>, nick: String) {
     let (mut sender, mut receiver) = socket.split();
     let mut rx = tx.subscribe();
 
@@ -3432,7 +3514,9 @@ async fn handle_socket(socket: WebSocket, tx: broadcast::Sender<String>) {
 
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(Message::Text(text))) = receiver.next().await {
-            let _ = tx.send(text);
+            if let Some(message) = authenticated_chat_message(&nick, &text.to_string()) {
+                let _ = tx.send(message);
+            }
         }
     });
 
@@ -3584,6 +3668,65 @@ mod tests {
         );
         assert!(take_group_websocket_ticket(&mut tickets, "valid-ticket", 100).is_none());
         assert!(take_group_websocket_ticket(&mut tickets, "expired-ticket", 100).is_none());
+    }
+
+    #[test]
+    fn websocket_chat_messages_use_authenticated_author_and_enforce_length() {
+        let message = authenticated_chat_message(
+            "VerifiedUser",
+            r#"{"author":"ImpersonatedUser","text":"hello"}"#,
+        )
+        .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&message).unwrap();
+        assert_eq!(parsed["author"], "VerifiedUser");
+        assert_eq!(parsed["text"], "hello");
+        assert!(authenticated_chat_message("VerifiedUser", r#"{"text":"  "}"#).is_none());
+        assert!(
+            authenticated_chat_message(
+                "VerifiedUser",
+                &serde_json::json!({
+                    "text": "x".repeat(501)
+                })
+                .to_string()
+            )
+            .is_none()
+        );
+        assert!(authenticated_chat_message("VerifiedUser", "not-json").is_none());
+    }
+
+    #[test]
+    fn changing_password_rotates_all_account_sessions() {
+        let mut sessions = HashMap::from([
+            (
+                "old-current-session".into(),
+                Session {
+                    email: "user@example.com".into(),
+                },
+            ),
+            (
+                "old-other-session".into(),
+                Session {
+                    email: "user@example.com".into(),
+                },
+            ),
+            (
+                "other-user-session".into(),
+                Session {
+                    email: "other@example.com".into(),
+                },
+            ),
+        ]);
+        rotate_user_sessions(&mut sessions, "user@example.com", "rotated-session".into());
+
+        assert!(!sessions.contains_key("old-current-session"));
+        assert!(!sessions.contains_key("old-other-session"));
+        assert_eq!(
+            sessions
+                .get("rotated-session")
+                .map(|session| session.email.as_str()),
+            Some("user@example.com")
+        );
+        assert!(sessions.contains_key("other-user-session"));
     }
 
     #[test]

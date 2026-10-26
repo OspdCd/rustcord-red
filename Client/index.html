@@ -3546,6 +3546,7 @@
         let followingCanDm = {};
         let friendPresenceAvailable = false;
         let communitySocket = null;
+        let communitySocketAttempt = null;
         let groupSocket = null;
         let groupSocketAttempt = null;
         let activeGroupId = null;
@@ -4537,7 +4538,9 @@
             document.getElementById('directMessageInput').disabled = true;
             document.getElementById('messagesBox').replaceChildren();
             document.getElementById('regPass').value = '';
+            communitySocketAttempt = null;
             if (communitySocket) communitySocket.close();
+            communitySocket = null;
             closeSettings();
             document.getElementById('app-screen').style.display = 'none';
             document.getElementById('auth-screen').style.display = 'flex';
@@ -4641,13 +4644,15 @@
                 return;
             }
             try {
-                await apiRequest('/api/auth/password', {
+                const result = await apiRequest('/api/auth/password', {
                     method: 'POST',
                     body: JSON.stringify({
                         current_password: currentPassword,
                         new_password: nextPassword
                     })
                 });
+                sessionToken = result.session;
+                localStorage.setItem('mortex_session', sessionToken);
                 document.getElementById('currentPassword').value = '';
                 document.getElementById('newPassword').value = '';
                 document.getElementById('confirmPassword').value = '';
@@ -5117,30 +5122,52 @@
             });
         }
 
-        function socketUrl() {
+        function socketUrl(ticket) {
             const url = new URL(API_BASE);
             url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
             url.pathname = '/ws/chat';
+            url.searchParams.set('ticket', ticket);
             return url.toString();
         }
 
         function connectCommunityChat() {
-            if (!myNick || communitySocket && [WebSocket.OPEN, WebSocket.CONNECTING].includes(communitySocket.readyState)) return;
+            if (!myNick || communitySocketAttempt || communitySocket && [WebSocket.OPEN, WebSocket.CONNECTING].includes(communitySocket.readyState)) return;
+            const attempt = {};
+            communitySocketAttempt = attempt;
             const status = document.getElementById('community-status');
-            try {
-                communitySocket = new WebSocket(socketUrl());
-                communitySocket.onopen = () => { status.textContent = 'Topluluk sohbetine bağlandın.'; };
-                communitySocket.onmessage = event => {
-                    let message;
-                    try { message = JSON.parse(event.data); }
-                    catch { message = { author: 'Kullanıcı', text: event.data }; }
-                    appendCommunityMessage(message.author || 'Kullanıcı', message.text || '');
-                };
-                communitySocket.onerror = () => { status.textContent = 'Sohbet bağlantısı kurulamadı.'; };
-                communitySocket.onclose = () => { status.textContent = 'Sohbet bağlantısı kapandı.'; };
-            } catch (error) {
-                status.textContent = `Sohbet başlatılamadı: ${error.message}`;
-            }
+            status.textContent = 'Sohbete bağlanılıyor...';
+            (async () => {
+                try {
+                    const result = await apiRequest('/api/auth/websocket-ticket', { method: 'POST' });
+                    if (communitySocketAttempt !== attempt || !sessionToken) return;
+                    const socket = new WebSocket(socketUrl(result.ticket));
+                    communitySocket = socket;
+                    communitySocketAttempt = null;
+                    socket.onopen = () => {
+                        if (communitySocket === socket) status.textContent = 'Topluluk sohbetine bağlandın.';
+                    };
+                    socket.onmessage = event => {
+                        if (communitySocket !== socket) return;
+                        let message;
+                        try { message = JSON.parse(event.data); }
+                        catch { message = { author: 'Kullanıcı', text: event.data }; }
+                        appendCommunityMessage(message.author || 'Kullanıcı', message.text || '');
+                    };
+                    socket.onerror = () => {
+                        if (communitySocket === socket) status.textContent = 'Sohbet bağlantısı kurulamadı.';
+                    };
+                    socket.onclose = () => {
+                        if (communitySocket !== socket) return;
+                        communitySocket = null;
+                        status.textContent = 'Sohbet bağlantısı kapandı.';
+                    };
+                } catch (error) {
+                    if (communitySocketAttempt === attempt) {
+                        communitySocketAttempt = null;
+                        status.textContent = `Sohbete bağlanılamadı: ${error.message}`;
+                    }
+                }
+            })();
         }
 
         function appendCommunityMessage(author, text) {
@@ -5166,7 +5193,7 @@
                 connectCommunityChat();
                 return;
             }
-            communitySocket.send(JSON.stringify({ author: myNick, text, createdAt: Date.now() }));
+            communitySocket.send(JSON.stringify({ text }));
             input.value = '';
         }
 
@@ -6120,7 +6147,7 @@
                 document.getElementById('group-chat-status').textContent = 'Metin kanalına bağlantı kuruluyor...';
                 return;
             }
-            groupSocket.send(JSON.stringify({ author: myNick || 'Kullanıcı', text }));
+            groupSocket.send(JSON.stringify({ text }));
             input.value = '';
         }
 
